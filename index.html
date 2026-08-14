@@ -92,7 +92,7 @@ main[hidden]{display:none;}
 @keyframes punchit{0%{transform:scale(1)}35%{transform:scale(.5)}100%{transform:scale(1)}}
 .punch.done{border-color:var(--sunk2)!important;background:var(--sunk);box-shadow:inset 0 2px 4px #00000038;}
 .punch.done::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--sunk2);}
-.mid{min-width:0;flex:1;cursor:pointer;}
+.mid{min-width:0;flex:1;cursor:pointer;position:relative;}
 .title{font-size:15.5px;font-weight:500;line-height:1.3;position:relative;display:inline-block;
   word-break:break-word;}
 .title.struck{color:var(--ink-40);}
@@ -104,7 +104,12 @@ main[hidden]{display:none;}
   padding:2.5px 6px;border-radius:4px;border:1px solid currentColor;}
 .t{font-family:var(--mono);font-size:11.5px;color:var(--ink-40);font-weight:500;}
 .t.live{color:var(--orange);}
-.bar{height:3px;border-radius:2px;margin-top:8px;background:var(--tray);overflow:hidden;}
+/* Absolutely positioned, so it sits in the row's existing bottom padding instead of
+   adding to the row's height. In flow it was height:3px + margin-top:8px, so the
+   moment a timer ticked 0s -> 1s the bar appeared, the row grew 11px, and the whole
+   list below it jumped down. Out of flow, appearing costs no layout. */
+.bar{position:absolute;left:0;right:0;bottom:-11px;height:3px;border-radius:2px;
+  background:var(--tray);overflow:hidden;}
 .bar i{display:block;height:100%;border-radius:2px;transition:width .6s ease;}
 .act{margin-left:auto;flex:none;}
 .play{width:36px;height:36px;border-radius:10px;border:1px solid var(--rule);background:var(--card);
@@ -301,6 +306,10 @@ function paintPalette(){
   HUES.forEach((v,i)=>document.documentElement.style.setProperty(v,set[i]));
 }
 const KEY="punchcard.v1";
+/* Shown at the bottom of Settings. No build step here, so bump this by hand in the
+   same commit as any change worth telling the phones apart by — it exists so you can
+   confirm at a glance whether a device actually picked up the latest push. */
+const VERSION="2026.08.14b";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -1306,7 +1315,8 @@ function settingsSheet(){
       Leave it off and the sky still follows the clock.</p>
     <p class="note" style="text-align:center">Everything else stays on this device.<br>
       ${storageOK?`Saved ${S.savedAt?new Date(S.savedAt).toLocaleTimeString():"—"} · revision ${S.rev}`
-                 :"⚠ Storage unavailable — nothing is being saved."}</p>`);
+                 :"⚠ Storage unavailable — nothing is being saved."}<br>
+      <span id="s-version" style="font-family:var(--mono);letter-spacing:.08em">v${VERSION}</span></p>`);
 
   $$("#s-theme .pill").forEach(b=>b.onclick=()=>{ st.theme=b.dataset.t; save(); applyTheme(); settingsSheet(); });
   $$("#s-hours .pill").forEach(b=>b.onclick=()=>{ st.cardHours=+b.dataset.h; save(); render(); settingsSheet(); });

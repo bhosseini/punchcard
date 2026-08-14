@@ -75,6 +75,15 @@ setTimeout(() => {
   check("toggling a timer only rebuilds the row that changed", touched.size <= 1,
     `${touched.size} of ${obsRows.length} rows had their children replaced`);
 
+  // The progress bar only renders once sec > 0, so it pops into existence one tick
+  // after you hit play. In normal flow that added height:3px + margin-top:8px to the
+  // row and shoved the whole list down. jsdom can't measure layout, so assert the
+  // property that makes the reflow impossible: the bar is out of flow.
+  const barRule = html.match(/\.bar\{[^}]*\}/);
+  check("progress bar is out of layout flow so it can't reflow the row",
+    !!barRule && /position:\s*absolute/.test(barRule[0]) && !/margin-top/.test(barRule[0]),
+    barRule ? barRule[0].replace(/\s+/g, " ") : "no .bar rule found");
+
   click(play);   // resume, so the timestamp checks below still have a running timer
   const saved = JSON.parse(window.localStorage.getItem("punchcard.v1"));
   check("running anchor persisted", saved.running && typeof saved.running.since === "number",
@@ -275,6 +284,8 @@ setTimeout(() => {
     check("weather is off by default",
       !JSON.parse(window.localStorage.getItem("punchcard.v1")).settings.weather);
     check("weather toggle present", !!$("#s-wx"));
+    check("settings shows a version string", /^v\d{4}\.\d{2}\.\d{2}/.test(($("#s-version")||{}).textContent||""),
+      ($("#s-version")||{}).textContent);
     check("follow-the-sun theme offered", /follow the sun/.test($("#sheetbody").textContent));
     click($("#scrim"));
     // no network calls should have been attempted with weather off
