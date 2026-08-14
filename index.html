@@ -48,7 +48,7 @@ header{padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 12px;flex:none;}
 h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;letter-spacing:-.03em;
   margin:8px 0 0;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;}
 #sky{border:none;background:none;padding:0;line-height:0;flex:none;
-  width:104px;height:64px;margin:-12px -22px -10px 0;pointer-events:none;}
+  width:104px;height:64px;margin:-12px 0 -10px 0;pointer-events:none;}
 #sky[hidden]{display:none;}
 #count:not(:empty)::after{content:" · ";}
 
@@ -847,7 +847,7 @@ function skySVG(){
   const slots=[
     {fn:cloudA, x:42, y:34, sc:.5,  o:.55, bottom:40},
     {fn:cloudB, x:60, y:48, sc:.62, o:.78, bottom:54.5},
-    {fn:cloudC, x:82, y:40, sc:.8,  o:.95, bottom:54.4},
+    {fn:cloudC, x:82, y:40, sc:.65, o:.95, bottom:51.7},
   ];
   const active=slots.slice(3-cloudCount);
   active.forEach(s=>{ g+=s.fn(s.x,s.y,s.sc,s.o); });
