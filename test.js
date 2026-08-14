@@ -268,10 +268,11 @@ setTimeout(() => {
       beforeIdx + " -> " + p2.idx);
 
     // ── 9c-4. the idea drawer
-    click($("#drawerbtn"));
+    click($$("nav button").find(b=>b.dataset.tab==="ideas"));
     check("drawer opens", !$("#m-ideas").hidden && $("#m-today").hidden);
     check("drawer heading", /Idea Drawer/.test($("#screen").textContent), $("#screen").textContent);
-    check("drawer hides the day rail and tabs", $("#rail").hidden && $("nav").hidden);
+    check("drawer hides the day rail", $("#rail").hidden);
+    check("drawer tab is selected", $$("nav button").find(b=>b.dataset.tab==="ideas").getAttribute("aria-selected")==="true");
     check("empty drawer says so", /drawer's empty/.test($("#m-ideas").textContent),
       $("#m-ideas").textContent.slice(0, 40));
 
@@ -305,7 +306,7 @@ setTimeout(() => {
       `inDrawer=${rolled.ideas.some(i=>i.title==="Visit the observatory")} onCard=${rolled.tasks.some(t=>t.title==="Visit the observatory")}`);
 
     // scheduling drops it into the existing plans machinery
-    click($("#drawerbtn"));
+    click($$("nav button").find(b=>b.dataset.tab==="ideas"));
     const planIdea = $$("#m-ideas .idea")[0];
     click(planIdea.querySelector('[data-act="plan"]'));
     check("schedule sheet shows a month grid", $$(".cday[data-off]").length >= 28,
@@ -317,8 +318,8 @@ setTimeout(() => {
     check("scheduling an idea files it under a future day",
       ideaPlanKeys.length >= 1 && planned.ideas.length === 0,
       `plans=${JSON.stringify(ideaPlanKeys)} ideas=${planned.ideas.length}`);
-    click($("#backpunch"));
-    check("back button returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
+    click($$("nav button").find(b=>b.dataset.tab==="today"));
+    check("today tab returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
 
     // ── 9d. the sky
     check("sky art rendered", $("#sky").innerHTML.startsWith("<svg"),

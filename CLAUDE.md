@@ -68,9 +68,12 @@ The look is "manila time card": flat ink on paper stock. Specifics:
 
 - **The idea drawer** (`tab==="ideas"`). A holding place for things worth doing that
   have no date yet — a museum, a date-night idea, a place to eat. Deliberately *not* a
-  third day-view: it has no card, no strip, no timers, and `#datelab`/`nav`/`#rail` are
-  hidden while it's open. Reachable from the drawer icon in the eyebrow, and left by the
-  back chevron or a right-swipe (`#m-ideas`, same commit-sideways rule as the day swipe).
+  third day-view: it has no card, no strip, no timers, and `#datelab`/`#rail` are hidden
+  while it's open (the tab row stays — it's how you leave). It's the third tab next to today/rhythm (big tap targets, and
+  getting back is self-evident); a right-swipe on `#m-ideas` also returns to the card,
+  same commit-sideways rule as the day swipe. `#m-ideas` needs `touch-action:pan-y` for
+  that — without it the browser claims the horizontal gesture and fires pointercancel.
+  The sky is hidden here too: the drawer isn't a day, so there's nothing to report.
   - An idea is `{id, title, notes, url, created}` in `S.ideas`.
   - It leaves the drawer exactly two ways, and both turn it into a normal task:
     onto today (`pullIdea` → `S.tasks`) or onto a future day (`scheduleIdea` →
