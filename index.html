@@ -276,6 +276,23 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
 /* ═══ Punchcard — local-first daily task card ════════════════ */
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const HUES=["--violet","--orange","--teal","--magenta","--olive"];
+/* Alternate palettes for the punch colours. Each slot stays in its own hue family
+   across every palette (violet-ish, orange-ish, teal-ish, magenta-ish, olive-ish) —
+   those same five vars also drive fixed-meaning UI (the live-timer dot, the
+   hole-punch checkmark, danger buttons), so a palette swap can't let a slot drift
+   into a different family or those lose their meaning. One is chosen per logical
+   day in rollover(), never repeating the previous day's. */
+const PALETTES=[
+  {light:["#5B3DF5","#FF5A1F","#0F8B8D","#D6266F","#6B8F3A"], dark:["#9B84FF","#FF8A57","#38C3C4","#F8619E","#A6CB63"]},
+  {light:["#6425F7","#FF4500","#00B8D9","#FF1493","#7ED321"], dark:["#B39DFF","#FF9466","#4DE8FF","#FF6FC4","#B4E346"]},
+  {light:["#7D6B9E","#C1743D","#4A8C82","#B85C7A","#8A8C4E"], dark:["#A493C4","#D89563","#6FADA3","#D183A0","#B0B26E"]},
+  {light:["#6D28D9","#C2410C","#0E7490","#A21CAF","#4D7C0F"], dark:["#C4B5FD","#FDBA74","#67E8F9","#F0ABFC","#BEF264"]},
+];
+function paintPalette(){
+  const dark=document.documentElement.dataset.theme==="dark";
+  const set=PALETTES[S.palette?.idx||0][dark?"dark":"light"];
+  HUES.forEach((v,i)=>document.documentElement.style.setProperty(v,set[i]));
+}
 const KEY="punchcard.v1";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
@@ -383,6 +400,70 @@ function dayName(offset){
   const d=new Date(); d.setDate(d.getDate()+offset);
   return d.toLocaleDateString(undefined,{weekday:"long"});
 }
+
+/* Only the live "Today" heading (view===0) ever shows a greeting instead of the
+   plain word — plans, history, and every other day name are untouched. Picked
+   at most a few times a day (morning/afternoon/night), not on every render;
+   see the slot check in render(). */
+const GREETING_MAX=24;                        // longer lines wrap to 3+ lines — looks broken
+const GREET_GENERAL=["Clock in.","Lock in.","Time to cook.","We have work to do.",
+  "Eyes on the prize.","Get after it.","Make it happen.","Let's get to work.",
+  "Punch the clock.","Dial it in.","Showtime.","Let's get this bread.","You know what to do.",
+  "The list awaits...","The quest continues.","The journey continues.","Destiny awaits.",
+  "The path is clear.","The hour has come.","Rise, adventurer.","Fate has work for you.",
+  "Your objectives await.","Onward.","Into the breach.","The saga continues.","Your move.",
+  "Beast mode.","Main character energy.","We've got this.","Easy money.","No sweat.",
+  "Big day.","Let's roll.","We ball.","You got this.","Looking productive today.",
+  "Certified doer.","Built different.","Problem solver online.","Absolutely locked in.",
+  "We move.","Say less.","Let's make some progress.","Today's looking good.",
+  "Oh god, there's tasks.","Here we go again.","Surely this will be fine.",
+  "What could possibly go wrong?","Task me up, Scotty.","Let's pretend we're organized.",
+  "Productivity.exe loading...","The list has opinions.","The chores have summoned you.",
+  "Unfortunately, there is work to do.","Fine. I'll do it.","You made the list. Now face it.",
+  "The audacity of these tasks.","Who put all these things here?",
+  "Future you is counting on you.","Past you left a mess.","The task monster hungers.",
+  "Another beautiful opportunity to be productive.","We can't keep ignoring these.",
+  "Today we fight the list.","One thing at a time.","No rush. Just progress.",
+  "Small steps count.","Nice and easy.","Let's take it one task at a time.",
+  "A little progress is still progress.","You've got time.","Keep moving forward.",
+  "Gentle productivity.","Let's make today count.","Just start somewhere.",
+  "We've got plenty to do. No panic.","Progress, not perfection.","One checkbox at a time.",
+  "The list has spoken.","Behold: today's tasks.","Your objectives have been updated.",
+  "New day. New tasks.","Loading today's nonsense...","Daily briefing:",
+  "Mission control online.","The dashboard is yours.","Your quest log has updated.",
+  "Objectives received.","Today's campaign:","Current directive:","Status: probably fine.",
+  "Let's see what we're working with."];
+const GREET_MORNING=["Fresh day, fresh list.","New day, new chances.","Morning briefing.",
+  "Coffee first. Then we conquer.","The day is yours.","Let's get this day started.",
+  "The sun is up. Unfortunately, so are we."];
+const GREET_NIGHT=["Still time to get stuff done.","The day isn't over yet.","We've got time.",
+  "Keep the momentum.","Don't call it a day just yet.","One last push.","Finish strong.",
+  "Let's close this out.","The night shift begins."];
+const GREET_WX={
+  rain:["Rainy day, same tasks.","Good day to stay in.","Cozy inside, busy inside.",
+    "Let it pour. Let's work.","Rain check? Not today."],
+  snow:["Snow day. Not off day.","Cold out, warm progress.","Let it snow. Let's go.",
+    "Bundle up and dig in.","A little frosty today."],
+  storm:["Loud sky, quiet focus.","Storm's here. Tasks too.","Thunder out, focus in.",
+    "Stay in. Get it done.","Weather the storm."],
+};
+function period(){
+  const h=new Date().getHours();
+  if(h>=5&&h<12) return "morning";
+  if(h>=12&&h<18) return "afternoon";
+  return "night";
+}
+function pickGreeting(){
+  const wx=S.settings.weather?WX((S.sky||{}).code):null;
+  const wxPool=GREET_WX[wx];
+  let pool = (wxPool&&Math.random()<0.5) ? wxPool
+    : GREET_GENERAL.concat(period()==="morning"?GREET_MORNING:period()==="night"?GREET_NIGHT:[]);
+  pool = pool.filter(s=>s.length<=GREETING_MAX);
+  if(!pool.length) return "Today";
+  let pick=pool[Math.floor(Math.random()*pool.length)];
+  if(pool.length>1&&pick===S.greeting?.text) pick=pool[Math.floor(Math.random()*pool.length)];
+  return pick;
+}
 /* you can plan a month out; you can look back as far as there's a record */
 function backLimit(){
   const days=Object.keys(S.history).filter(k=>Object.keys(S.history[k].per||{}).length
@@ -408,6 +489,12 @@ function rollover(){
     S.plans[d].forEach(pl=>S.tasks.push({...pl,done:false,sec:0}));
     delete S.plans[d];
   });
+  if(PALETTES.length>1&&S.palette?.idx==null){
+    S.palette={idx:Math.floor(Math.random()*PALETTES.length)};        // very first run
+  }else if(PALETTES.length>1){
+    let idx; do{ idx=Math.floor(Math.random()*PALETTES.length); }while(idx===S.palette.idx);
+    S.palette={idx};
+  }
   S.lastDay=k; save();
 }
 function snapshot(k=dayKey()){
@@ -510,7 +597,13 @@ function render(){
   const rd=$("#railday");
   rd.textContent = view===0?"Today":dayName(view)+" · back to today";
   rd.classList.toggle("away",view!==0);
-  $("#screen").textContent = tab==="today"?dayName(view):"Rhythm";
+  if(tab==="today"&&view===0){
+    const slot=dayKey()+":"+period();
+    if(S.greeting?.slot!==slot){ S.greeting={slot,text:pickGreeting()}; save(true); }
+    $("#screen").textContent = S.greeting.text;
+  }else{
+    $("#screen").textContent = tab==="today"?dayName(view):"Rhythm";
+  }
   $("#warn").hidden = storageOK;
   paintSky();
   $("#m-today").hidden = tab!=="today";
@@ -1200,6 +1293,7 @@ function applyTheme(){
     || (t==="sky" && (ph==="night"||ph==="dusk"));
   document.documentElement.dataset.theme = dark?"dark":"light";
   $('meta[name=theme-color]').setAttribute("content", dark?"#1B1922":"#EFEAE0");
+  paintPalette();
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>applyTheme());
 

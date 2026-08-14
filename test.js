@@ -167,7 +167,9 @@ setTimeout(() => {
     check("recurring dailies previewed", /Arrives on its own/.test($("#m-today").textContent));
 
     click($("#railday"));   // jump home
-    check("rail returns to today", /Today/.test($("#screen").textContent), $("#screen").textContent);
+    // #screen may show a rotating greeting instead of the literal word "Today" now;
+    // #railday's own label isn't affected by that, so it's the stable thing to check
+    check("rail returns to today", $("#railday").textContent === "Today", $("#railday").textContent);
     check("today's card unaffected", !/Plan for tomorrow/.test($("#m-today").textContent));
 
     click($("#prevday"));
@@ -186,6 +188,34 @@ setTimeout(() => {
     check("planned task arrives after rollover",
       post.tasks.some(t => t.title === "Plan for tomorrow") || Object.keys(post.plans).length === 1,
       "tasks=" + post.tasks.map(t => t.title).join("|") + " plans=" + JSON.stringify(Object.keys(post.plans)));
+
+    // ── 9c-2. the "Today" greeting — only the live today view gets one
+    const withGreeting = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    check("greeting picked for today's view", !!withGreeting.greeting?.text,
+      JSON.stringify(withGreeting.greeting));
+    check("greeting respects the max length", (withGreeting.greeting?.text || "").length <= 24,
+      withGreeting.greeting?.text);
+    check("greeting isn't the literal word Today", withGreeting.greeting?.text !== "Today",
+      withGreeting.greeting?.text);
+    const screenBefore = $("#screen").textContent;
+    window.render();                              // re-render within the same slot
+    check("greeting doesn't change on every render", $("#screen").textContent === screenBefore,
+      screenBefore + " vs " + $("#screen").textContent);
+
+    // ── 9c-3. daily palette — one of a handful, never the same as yesterday
+    const p1 = JSON.parse(window.localStorage.getItem("punchcard.v1")).palette;
+    check("palette picked", p1 && p1.idx >= 0 && p1.idx < 4, JSON.stringify(p1));
+    const violetNow = window.getComputedStyle(doc.documentElement).getPropertyValue("--violet").trim();
+    check("palette actually applied to the CSS vars", violetNow.length > 0, violetNow);
+
+    const beforeIdx = p1.idx;
+    const forced = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    forced.lastDay = "1999-01-01";               // force yet another rollover
+    window.localStorage.setItem("punchcard.v1", JSON.stringify(forced));
+    doc.dispatchEvent(new window.Event("visibilitychange"));
+    const p2 = JSON.parse(window.localStorage.getItem("punchcard.v1")).palette;
+    check("palette doesn't repeat the previous day's", p2.idx !== beforeIdx,
+      beforeIdx + " -> " + p2.idx);
 
     // ── 9d. the sky
     check("sky art rendered", $("#sky").innerHTML.startsWith("<svg"),
