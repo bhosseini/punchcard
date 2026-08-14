@@ -21,9 +21,9 @@
   --sb:env(safe-area-inset-bottom,0px);
 }
 [data-theme="dark"]{
-  --paper:#1B1922; --card:#23212C; --ink:#EFE9DC; --ink-40:#918A9C;
-  --rule:#332F3E; --slot:#26232F; --tray:#191722; --sunk:#2C2937; --sunk2:#3A3646;
-  --violet:#8B72FF; --orange:#FF7A45; --teal:#2BB3B5; --magenta:#F04E8E; --olive:#93BC55;
+  --paper:#171231; --card:#211B42; --ink:#EFE9F8; --ink-40:#9C94B9;
+  --rule:#352C5C; --slot:#251E49; --tray:#120E27; --sunk:#2B2356; --sunk2:#3B3169;
+  --violet:#9B84FF; --orange:#FF8A57; --teal:#38C3C4; --magenta:#F8619E; --olive:#A6CB63;
 }
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;height:100%;overscroll-behavior:none;}
@@ -46,10 +46,9 @@ header{padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 12px;flex:none;}
   line-height:0;border-radius:6px;}
 .icobtn:hover{color:var(--ink);}
 h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;letter-spacing:-.03em;
-  margin:8px 0 0;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;}
-#sky{border:none;background:none;padding:0;line-height:0;flex:none;cursor:pointer;
-  border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--rule);transition:transform .15s ease;}
-#sky:active{transform:scale(.94);}
+  margin:8px 0 0;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;}
+#sky{border:none;background:none;padding:0;line-height:0;flex:none;
+  width:104px;height:64px;margin:-12px -22px -10px 0;pointer-events:none;}
 #sky[hidden]{display:none;}
 #count:not(:empty)::after{content:" · ";}
 
@@ -759,36 +758,84 @@ const WX=c=>c==null?null:c===0?"clear":c<=3?"cloud":(c===45||c===48)?"fog":
 function skySVG(){
   const ph=phaseNow(), night=ph==="night";
   const wx=S.settings.weather?WX((S.sky||{}).code):null;
-  let g=`<rect width="62" height="42" rx="9" fill="${SKY[ph]}"/>`;
+  const cloudy=wx&&wx!=="clear"&&wx!=="fog";
+
+  /* No background rectangle and no mask. Elements float on transparency and
+     sit directly on the card, so there is no box edge to catch the light. */
+  const defs=`<defs>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="${night?"#CBB9FF":"#FFDA92"}" stop-opacity="${night?.55:.7}"/>
+      <stop offset=".55" stop-color="${night?"#8E79E8":"#FFCB76"}" stop-opacity="${night?.22:.3}"/>
+      <stop offset="1" stop-color="${night?"#8E79E8":"#FFCB76"}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="moon" x1=".15" y1=".05" x2=".8" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".5" stop-color="#EEF0FF"/>
+      <stop offset="1" stop-color="#C6C9EC"/></linearGradient>
+    <linearGradient id="sun" x1=".1" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#FFFCF0"/><stop offset="1" stop-color="#F8A72F"/></linearGradient>
+    <linearGradient id="cl" x1=".2" y1="0" x2=".4" y2="1">
+      <stop offset="0" stop-color="${night?"#E9E4FF":"#FFFFFF"}"/>
+      <stop offset=".55" stop-color="${night?"#C3B7F0":"#E8F0FA"}"/>
+      <stop offset="1" stop-color="${night?"#9385D2":"#B8CCE4"}"/></linearGradient>
+    <linearGradient id="drop" x1="0" y1="0" x2=".3" y2="1">
+      <stop offset="0" stop-color="${night?"#DCE6FF":"#F2F8FF"}"/>
+      <stop offset="1" stop-color="${night?"#8B9EE4":"#93B8E2"}"/></linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE07A"/><stop offset="1" stop-color="#FFA318"/></linearGradient>
+  </defs>`;
+
+  let g="";
 
   if(night){
-    g+=[[11,11,1.4],[23,21,.9],[15,31,1.1],[31,8,.9],[8,24,1.3]]
-      .map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#F6F0E1" opacity="${r>1?.85:.5}"/>`).join("");
-    const p=moonAge(), cx=44, cy=16, r=9.5;
-    g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#242D48"/>
-        <path d="${moonPath(cx,cy,r,p)}" fill="#F7E9C4"/>`;
-  }else{
-    const s=ph==="day"?{x:44,y:14,r:9,f:"#F6C445"}:{x:44,y:21,r:9.5,f:"#F98A4B"};
-    g+=`<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="${s.f}"/>`;
-    if(ph!=="day") g+=`<rect y="31" width="62" height="11" fill="${ph==="dawn"?"#C86B3C":"#9A4E44"}"/>`;
+    // stars, scattered to the left of the moon
+    g+=[[24,20,1.5,.9],[36,12,1,.6],[30,33,1.2,.75],[16,30,1.3,.8],[44,26,.85,.5],[52,15,.7,.45]]
+      .map(([x,y,r,o])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFBEF" opacity="${o}"/>`).join("");
+    // a four-point sparkle, like the reference
+    g+=`<path d="M92 12c.5 3.4 1.4 4.3 4.8 4.8-3.4.5-4.3 1.4-4.8 4.8-.5-3.4-1.4-4.3-4.8-4.8 3.4-.5 4.3-1.4 4.8-4.8z"
+        fill="#FFF6DC" opacity=".95"/>`;
   }
 
-  if(wx&&wx!=="clear"){
-    const c=night?"#48536F":"#F3EEE3";
-    if(wx==="fog"){
-      g+=[23,29,35].map((y,i)=>`<rect x="${7+i*2}" y="${y}" width="${46-i*3}" height="2.6" rx="1.3"
-        fill="${night?"#57628012":c}" opacity=".85"/>`).join("");
-    }else{
-      g+=`<g><ellipse cx="27" cy="21" rx="11.5" ry="6.8" fill="${c}"/>
-          <ellipse cx="35" cy="23" rx="8.5" ry="5.2" fill="${c}"/>
-          <ellipse cx="19" cy="23.5" rx="7.5" ry="4.8" fill="${c}"/></g>`;
-      if(wx==="rain") g+=[18,27,36].map(x=>`<line x1="${x}" y1="30" x2="${x-3}" y2="37"
-        stroke="${night?"#93A9C8":"#5B7C99"}" stroke-width="2.1" stroke-linecap="round"/>`).join("");
-      if(wx==="snow") g+=[18,27,36].map(x=>`<circle cx="${x}" cy="33.5" r="1.9" fill="#FFFDF6"/>`).join("");
-      if(wx==="storm") g+=`<path d="M29 28l-6 8h4.4l-2.6 6 8.2-9.4h-4.4z" fill="#F6C445"/>`;
-    }
+  const cx=72, cy=cloudy?24:27, r=15;
+  g+=`<circle cx="${cx}" cy="${cy}" r="${r*1.9}" fill="url(#glow)"/>`;
+
+  if(night){
+    // full soft orb with a crater or two — reads as "moon" instantly, no phase needed
+    g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#moon)"/>
+        <circle cx="${cx-5}" cy="${cy-4}" r="3" fill="#DADCF4" opacity=".55"/>
+        <circle cx="${cx+4}" cy="${cy+3}" r="2.1" fill="#DADCF4" opacity=".45"/>
+        <circle cx="${cx+2}" cy="${cy-6}" r="1.4" fill="#DADCF4" opacity=".4"/>`;
+  }else{
+    g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#sun)"/>
+        <ellipse cx="${cx-5}" cy="${cy-6}" rx="6" ry="4.4" fill="#FFFFFF" opacity=".4"/>`;
   }
-  return `<svg viewBox="0 0 62 42" width="62" height="42" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+
+  const puff=(x,y,sc,o)=>`<g opacity="${o}">
+    <ellipse cx="${x}" cy="${y}" rx="${18*sc}" ry="${11*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x+14*sc}" cy="${y+3.5*sc}" rx="${11.5*sc}" ry="${8*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x-14*sc}" cy="${y+4*sc}" rx="${10.5*sc}" ry="${7*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x-5*sc}" cy="${y-5.5*sc}" rx="${7.5*sc}" ry="${3.6*sc}" fill="#FFFFFF" opacity=".4"/></g>`;
+
+  if(cloudy){
+    g+=puff(78,38,.5,.9);
+    g+=puff(60,42,.9,1);
+  }else if(night){
+    g+=puff(66,44,.62,.95);      // the reference look: a small cloud nestled under the moon
+  }else if(ph==="day"){
+    g+=puff(50,47,.58,.72);
+  }
+
+  if(wx==="rain")
+    g+=[50,62,74].map((x,i)=>`<path d="M${x} ${50+(i%2)*3}c-2.4 2.8-3.7 4.4-3.7 5.8a3.7 3.7 0 0 0 7.4 0c0-1.4-1.3-3-3.7-5.8z"
+      fill="url(#drop)"/>`).join("");
+  if(wx==="snow")
+    g+=[50,62,74].map((x,i)=>`<circle cx="${x}" cy="${53+(i%2)*3}" r="2.7" fill="#FFFFFF" opacity=".95"/>`).join("");
+  if(wx==="storm")
+    g+=`<path d="M67 45l-7 9.6h4.8l-2.7 6.9 9.6-10.9h-5L69 45z" fill="url(#bolt)"/>`;
+  if(wx==="fog")
+    g+=[30,39,48].map((y,i)=>`<rect x="${40+i*6}" y="${y}" width="${58-i*12}" height="5" rx="2.5"
+      fill="url(#cl)" opacity="${.8-i*.14}"/>`).join("");
+
+  return `<svg viewBox="0 0 104 64" width="104" height="64" xmlns="http://www.w3.org/2000/svg">${defs}${g}</svg>`;
 }
 
 function paintSky(){
@@ -1126,7 +1173,6 @@ $("#new").addEventListener("keydown",e=>{ if(e.key==="Enter") addTask(); });
 $("#dailytog").onclick=e=>{ newDaily=!newDaily; e.target.classList.toggle("on",newDaily);
   e.target.setAttribute("aria-pressed",newDaily); };
 $("#gear").onclick=settingsSheet;
-$("#sky").onclick=skyTell;
 setInterval(()=>{ if(drag) return; paintSky(); applyTheme(); refreshWeather(); },3e5);
 $("#prevday").onclick=()=>goDay(-1);
 $("#nextday").onclick=()=>goDay(1);
