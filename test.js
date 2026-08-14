@@ -382,6 +382,18 @@ setTimeout(() => {
     // measure only circles filled with the cloud gradient — the sun's glow disc is the
     // biggest circle in the frame and would otherwise dominate the comparison
     const biggestCloud = s => Math.max(...[...s.matchAll(/r="([\d.]+)" fill="url\(#cl\)"/g)].map(m => +m[1]));
+    // the header tint rides with the sky art — same phase, same on/off switch
+    const tint = () => doc.documentElement.style.getPropertyValue("--skyraw");
+    window.phaseNow = () => "day";  window.paintSky();
+    const dayTint = tint();
+    window.phaseNow = () => "dusk"; window.paintSky();
+    check("header tint follows the time of day", dayTint && tint() && dayTint !== tint(),
+      `day=${dayTint} dusk=${tint()}`);
+    window.eval("S.settings.sky = false;"); window.paintSky();
+    check("header tint goes away with the sky art", !tint(), tint());
+    window.eval("S.settings.sky = true;"); window.paintSky();
+    check("header tint comes back", !!tint(), tint());
+
     check("sun still shows through partial cloud", /url\(#sun\)/.test(partly));
     check("overcast day hides the sun", !/url\(#sun\)/.test(socked));
     check("overcast night hides the moon", !/url\(#moon\)/.test(sockedNight));

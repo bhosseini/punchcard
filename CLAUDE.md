@@ -88,6 +88,18 @@ The look is "manila time card": flat ink on paper stock. Specifics:
     source of truth, nothing to resync if the plan changes. Tapping it offers to move
     the date or return it to the drawer.
 
+- **The header tint.** The `header` carries a gradient from the current phase's sky
+  colour down to plain `--paper`, reaching paper before the strip so there's no seam.
+  The phase colour is the `SKY` constant (which had gone dead when the old background
+  rect was removed — this gave it a job again), set as `--skyraw` by `paintSky()` and
+  mixed into the paper with `color-mix` rather than used neat, so one set of colours
+  works on both themes. The flat `background:var(--paper)` declared just before the
+  gradient is a real fallback: without `color-mix` the gradient is dropped and the
+  header is plain paper. Tint and art share a switch — turn off "Sky in the header"
+  and both go, and neither shows in the drawer.
+  This is the one sanctioned exception to "flat everywhere" beyond the art itself;
+  Bobby asked for it after seeing it mocked up.
+
 - **The sky** (`skySVG()`): free-floating SVG shapes on transparency — moon/sun, stars,
   clouds, glow. **No background `<rect>`, no CSS mask.** An earlier version composited a
   full picture and faded its edges; the picture's gradient was lighter than the card and

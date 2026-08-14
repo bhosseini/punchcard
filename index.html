@@ -39,7 +39,18 @@ button,input{font:inherit;color:inherit;}
 }
 
 /* ── header ─────────────────────────────── */
-header{padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 12px;flex:none;}
+/* The sky the art sits in. --skyraw is the phase colour, set by paintSky(); it's mixed
+   into the paper rather than used neat so one set of colours works on both themes, and
+   the gradient reaches plain paper before the strip so there's no seam to notice.
+   The flat declaration first is the fallback: if color-mix isn't supported the whole
+   gradient is dropped and the header is just paper, exactly as it was. */
+header{padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 12px;flex:none;
+  background:var(--paper);
+  background:linear-gradient(to bottom,
+    color-mix(in srgb, var(--skyraw, var(--paper)) 38%, var(--paper)) 0%,
+    color-mix(in srgb, var(--skyraw, var(--paper)) 38%, var(--paper)) 34%,
+    var(--paper) 88%);
+  transition:background .6s ease;}
 .eyebrow{display:flex;justify-content:space-between;align-items:center;
   font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--ink-40);text-transform:uppercase;}
 .icobtn{background:none;border:none;color:var(--ink-40);cursor:pointer;padding:4px;margin:-4px;
@@ -366,7 +377,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14g";
+const VERSION="2026.08.14h";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -1322,10 +1333,21 @@ function skySVG(){
    that actually affects the art changed (moonAge rounded to the minute — plenty
    precise for a crescent that shifts over weeks, not seconds). */
 let lastSkyKey=null;
+let lastTint=null;
 function paintSky(){
   const el=$("#sky"); if(!el) return;
   // the drawer isn't a day — no clock, no weather, nothing for the sky to report
   el.hidden=!S.settings.sky||tab==="ideas";
+
+  /* the header tint rides with the art: same switch, same phase. Memoised like the
+     rest of paintSky so an unrelated render doesn't touch the DOM. */
+  const root=document.documentElement.style;
+  const tint=el.hidden?null:SKY[phaseNow()];
+  if(tint!==lastTint){
+    lastTint=tint;
+    if(tint) root.setProperty("--skyraw",tint); else root.removeProperty("--skyraw");
+  }
+
   if(el.hidden) return;
   const sk=S.sky||{};
   const key=[phaseNow(),S.settings.weather,sk.code,sk.cover,moonAge().toFixed(4)].join("|");
