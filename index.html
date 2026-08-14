@@ -288,9 +288,16 @@ const PALETTES=[
   {light:["#7D6B9E","#C1743D","#4A8C82","#B85C7A","#8A8C4E"], dark:["#A493C4","#D89563","#6FADA3","#D183A0","#B0B26E"]},
   {light:["#6D28D9","#C2410C","#0E7490","#A21CAF","#4D7C0F"], dark:["#C4B5FD","#FDBA74","#67E8F9","#F0ABFC","#BEF264"]},
 ];
+/* applyTheme() runs on every render() too — same story as paintSky(), skip the
+   5 custom-property writes unless the theme or the day's palette actually changed. */
+let lastPaletteKey=null;
 function paintPalette(){
   const dark=document.documentElement.dataset.theme==="dark";
-  const set=PALETTES[S.palette?.idx||0][dark?"dark":"light"];
+  const idx=S.palette?.idx||0;
+  const key=dark+":"+idx;
+  if(key===lastPaletteKey) return;
+  lastPaletteKey=key;
+  const set=PALETTES[idx][dark?"dark":"light"];
   HUES.forEach((v,i)=>document.documentElement.style.setProperty(v,set[i]));
 }
 const KEY="punchcard.v1";
@@ -700,25 +707,49 @@ function renderPast(key,h){
   m.appendChild(note);
 }
 
+/* Every render() call used to wipe #m-today and rebuild every row from scratch —
+   including the common case of just tapping play, where only one row's icon
+   actually changes. That full teardown/rebuild is what showed up as the whole
+   stack visibly jumping. Reconcile against what's already there instead: reuse
+   a row's existing DOM node (same position, same element) whenever the task at
+   that slot is unchanged, and only create/move nodes where the list actually
+   changed structurally (added, removed, punched to the other section, reordered). */
 function renderToday(total){
-  const m=$("#m-today"); m.innerHTML="";
+  const m=$("#m-today");
   const open=S.tasks.filter(t=>!t.done), done=S.tasks.filter(t=>t.done);
   if(!S.tasks.length){
     m.innerHTML='<div class="empty">Blank card.<br>Type the first thing you\'ll do below.</div>'; return;
   }
-  open.forEach(t=>m.appendChild(row(t,total)));
+  const stale=m.querySelector(".empty"); if(stale) stale.remove();
+
+  // key by task id, not position — robust to reordering, unlike walking both lists in
+  // parallel. appendChild on a node already in the DOM moves it rather than recreating
+  // it, so building the final order this way reuses every unchanged row untouched.
+  const byId=new Map();
+  [...m.children].forEach(c=>{ if(c.classList?.contains("row")) byId.set(c.dataset.id,c); });
+
+  open.forEach(t=>m.appendChild(row(t,total,byId.get(String(t.id)))));
+
+  const oldSect=[...m.children].find(c=>c.className==="sect");
   if(done.length){
-    const h=document.createElement("div"); h.className="sect"; h.textContent="Punched out"; m.appendChild(h);
-    done.forEach(t=>m.appendChild(row(t,total)));
+    const h=(oldSect&&oldSect.textContent==="Punched out")?oldSect:document.createElement("div");
+    h.className="sect"; h.textContent="Punched out";
+    m.appendChild(h);
+    done.forEach(t=>m.appendChild(row(t,total,byId.get(String(t.id)))));
+  }else if(oldSect){
+    oldSect.remove();
   }
+
+  const wantIds=new Set(S.tasks.map(t=>String(t.id)));
+  [...m.children].forEach(c=>{ if(c.classList?.contains("row")&&!wantIds.has(c.dataset.id)) c.remove(); });
 }
 
-function row(t,total){
+function row(t,total,existing){
   const i=S.tasks.indexOf(t), c=hue(t), on=activeId()===t.id, sec=secOf(t);
-  const el=document.createElement("div"); el.className="row";
-  el.dataset.id=t.id; if(t.done) el.dataset.done="1";
+  const el=existing||document.createElement("div"); el.className="row";
+  el.dataset.id=t.id; if(t.done) el.dataset.done="1"; else delete el.dataset.done;
   const pct = t.target ? Math.min(100,sec/(t.target*60)*100) : (total?sec/total*100:0);
-  el.innerHTML=`
+  const html=`
     <button class="punch${t.done?" done":""}" style="${t.done?"":"border-color:"+c}"
       aria-label="${t.done?"Unpunch":"Punch out"} ${esc(t.title)}"></button>
     <div class="mid">
@@ -734,10 +765,21 @@ function row(t,total){
     <div class="act">${t.done?"":`<button class="play${on?" on":""}" aria-label="${on?"Pause":"Start"} timer">${
       on?'<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="3.4" height="10" fill="currentColor"/><rect x="7.6" y="1" width="3.4" height="10" fill="currentColor"/></svg>'
         :'<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 1l9 5-9 5z" fill="currentColor"/></svg>'}</button>`}</div>`;
+  /* Only touch the DOM if this row's markup actually differs. Tapping play
+     re-renders the whole card, but just one row's markup really changes; the
+     others were being wiped and rebuilt identically. That destroy/recreate
+     momentarily collapses each row's height, and the phone paints that
+     in-between frame — the whole stack visibly jumping up and back down. */
+  if(el.__sig!==html){ el.__sig=html; el.innerHTML=html; }
+
+  /* Handlers are rebound every time even when the markup was reused: rollover()
+     rebuilds task objects with the same ids, so a retained closure could otherwise
+     point at a stale copy. These are plain property assignments — no DOM churn,
+     and using .on*= rather than addEventListener means they replace, never stack. */
   el.querySelector(".punch").onclick=()=>punch(t,el);
   el.querySelector(".mid").onclick=()=>{ if(!justDragged) taskSheet(t); };
-  if(!t.done) el.addEventListener("pointerdown",e=>armDrag(el,t,e));
   const p=el.querySelector(".play"); if(p) p.onclick=()=>toggleTimer(t);
+  el.onpointerdown = t.done ? null : e=>armDrag(el,t,e);
   return el;
 }
 const esc=s=>s.replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
@@ -967,10 +1009,21 @@ function skySVG(){
   return `<svg viewBox="0 0 104 64" width="104" height="64" xmlns="http://www.w3.org/2000/svg">${defs}${g}</svg>`;
 }
 
+/* render() calls this on every repaint — including just tapping play, which has
+   nothing to do with the sky. Rebuilding the gradient-heavy SVG from scratch every
+   time was visible as a flicker on real devices. Skip the rebuild unless something
+   that actually affects the art changed (moonAge rounded to the minute — plenty
+   precise for a crescent that shifts over weeks, not seconds). */
+let lastSkyKey=null;
 function paintSky(){
   const el=$("#sky"); if(!el) return;
   el.hidden=!S.settings.sky;
-  if(S.settings.sky) el.innerHTML=skySVG();
+  if(!S.settings.sky) return;
+  const sk=S.sky||{};
+  const key=[phaseNow(),S.settings.weather,sk.code,sk.cover,moonAge().toFixed(4)].join("|");
+  if(key===lastSkyKey) return;
+  lastSkyKey=key;
+  el.innerHTML=skySVG();
 }
 function skyTell(){
   const ph=phaseNow(), sk=S.sky||{}, bits=[];

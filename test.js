@@ -49,8 +49,33 @@ setTimeout(() => {
   check("daily toggle resets after add", !$("#dailytog").classList.contains("on"));
 
   // ── 4. timer uses a stored timestamp
-  const play = $$("#m-today .row")[0].querySelector(".play");
+  // toggleTimer() used to trigger a full innerHTML wipe-and-rebuild of the whole task
+  // list on every tap — visible on real devices as the entire stack jumping. Capture
+  // the actual row elements first and prove they're the SAME nodes after, not
+  // look-alike replacements — that's what actually stops the jump.
+  const rowsBeforePlay = $$("#m-today .row");
+  const play = rowsBeforePlay[0].querySelector(".play");
   click(play);
+  const rowsAfterPlay = $$("#m-today .row");
+  check("starting a timer doesn't recreate the row list",
+    rowsBeforePlay.length === rowsAfterPlay.length && rowsBeforePlay.every((r, i) => r === rowsAfterPlay[i]),
+    `${rowsBeforePlay.length} rows before, ${rowsAfterPlay.length} after, same nodes: ${rowsBeforePlay.every((r,i)=>r===rowsAfterPlay[i])}`);
+
+  // Keeping the row element isn't enough on its own: row() also used to rewrite every
+  // row's innerHTML, wiping and recreating its children even when the markup was
+  // byte-identical. That momentarily collapses each row's height, and the phone paints
+  // the in-between frame — the stack visibly jumping. Only rows whose markup really
+  // changed should have their children touched.
+  const obsRows = $$("#m-today .row");
+  const obs = new window.MutationObserver(() => {});
+  obsRows.forEach(r => obs.observe(r, { childList: true }));
+  click(play);                                   // pause — only this row's markup changes
+  const touched = new Set(obs.takeRecords().map(r => obsRows.indexOf(r.target)));
+  obs.disconnect();
+  check("toggling a timer only rebuilds the row that changed", touched.size <= 1,
+    `${touched.size} of ${obsRows.length} rows had their children replaced`);
+
+  click(play);   // resume, so the timestamp checks below still have a running timer
   const saved = JSON.parse(window.localStorage.getItem("punchcard.v1"));
   check("running anchor persisted", saved.running && typeof saved.running.since === "number",
         JSON.stringify(saved.running));
@@ -223,6 +248,29 @@ setTimeout(() => {
     check("sky avoids svg masks (they render inconsistently)", !/mask=/.test($("#sky").innerHTML));
     check("sky art has depth", /linearGradient|radialGradient/.test($("#sky").innerHTML));
     check("sky has no background box", !/<rect width="104/.test($("#sky").innerHTML));
+
+    // a render triggered by something unrelated (tapping play, adding a task) used to
+    // rebuild the whole gradient-heavy sky SVG every time — visible as a flicker on
+    // real devices. Comparing output alone is too weak a check here: skySVG()'s
+    // coordinates are already rounded to 2 decimals, so two calls a moment apart would
+    // likely produce identical markup anyway, fix or no fix. Spy on the actual function
+    // call count instead — that's what the flicker fix has to prevent.
+    let skySVGCalls = 0;
+    const origSkySVG = window.skySVG;
+    window.skySVG = (...a) => { skySVGCalls++; return origSkySVG(...a); };
+    window.render();
+    check("paintSky skips the rebuild when nothing changed", skySVGCalls === 0,
+      "skySVG() called " + skySVGCalls + " times on a no-op render");
+    window.skySVG = origSkySVG;
+
+    let setPropCalls = 0;
+    const origSetProp = window.CSSStyleDeclaration.prototype.setProperty;
+    window.CSSStyleDeclaration.prototype.setProperty = function(...a) { setPropCalls++; return origSetProp.apply(this, a); };
+    window.render();
+    check("paintPalette skips rewriting CSS vars when nothing changed", setPropCalls === 0,
+      "setProperty called " + setPropCalls + " times on a no-op render");
+    window.CSSStyleDeclaration.prototype.setProperty = origSetProp;
+
     click($("#gear"));
     check("weather is off by default",
       !JSON.parse(window.localStorage.getItem("punchcard.v1")).settings.weather);
