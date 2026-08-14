@@ -757,31 +757,43 @@ const WX=c=>c==null?null:c===0?"clear":c<=3?"cloud":(c===45||c===48)?"fog":
 
 function skySVG(){
   const ph=phaseNow(), night=ph==="night";
-  const wx=S.settings.weather?WX((S.sky||{}).code):null;
+  const sk=S.sky||{};
+  const wx=S.settings.weather?WX(sk.code):null;
   const cloudy=wx&&wx!=="clear"&&wx!=="fog";
+  // how many small clouds to draw, not how big one cloud gets — real cloud_cover % when we
+  // have it (0-100 from open-meteo), a flat guess if weather's on but cover hasn't loaded yet,
+  // or a single decorative puff when weather tracking is off entirely.
+  const cloudCount = cloudy ? (sk.cover!=null ? (sk.cover<15?0:sk.cover<40?1:sk.cover<70?2:3) : 2)
+    : (!S.settings.weather&&(night||ph==="day")) ? 1 : 0;
 
   /* No background rectangle and no mask. Elements float on transparency and
      sit directly on the card, so there is no box edge to catch the light. */
   const defs=`<defs>
     <radialGradient id="glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="${night?"#CBB9FF":"#FFDA92"}" stop-opacity="${night?.55:.7}"/>
-      <stop offset=".55" stop-color="${night?"#8E79E8":"#FFCB76"}" stop-opacity="${night?.22:.3}"/>
-      <stop offset="1" stop-color="${night?"#8E79E8":"#FFCB76"}" stop-opacity="0"/></radialGradient>
-    <linearGradient id="moon" x1=".15" y1=".05" x2=".8" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset=".5" stop-color="#EEF0FF"/>
-      <stop offset="1" stop-color="#C6C9EC"/></linearGradient>
+      <stop offset="0" stop-color="${night?"#B79CF0":"#FFDA92"}" stop-opacity="${night?.5:.7}"/>
+      <stop offset=".55" stop-color="${night?"#7B5FD1":"#FFCB76"}" stop-opacity="${night?.2:.3}"/>
+      <stop offset="1" stop-color="${night?"#7B5FD1":"#FFCB76"}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="moon" x1=".1" y1=".05" x2=".9" y2="1">
+      <stop offset="0" stop-color="#CBB4FF"/>
+      <stop offset=".55" stop-color="#9575E8"/>
+      <stop offset="1" stop-color="#5C3FAE"/></linearGradient>
     <linearGradient id="sun" x1=".1" y1="0" x2=".8" y2="1">
       <stop offset="0" stop-color="#FFFCF0"/><stop offset="1" stop-color="#F8A72F"/></linearGradient>
-    <linearGradient id="cl" x1=".2" y1="0" x2=".4" y2="1">
-      <stop offset="0" stop-color="${night?"#E9E4FF":"#FFFFFF"}"/>
-      <stop offset=".55" stop-color="${night?"#C3B7F0":"#E8F0FA"}"/>
-      <stop offset="1" stop-color="${night?"#9385D2":"#B8CCE4"}"/></linearGradient>
+    <linearGradient id="cl" x1=".2" y1="0" x2=".5" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".6" stop-color="#E7EEF7"/>
+      <stop offset="1" stop-color="#B9C6DC"/></linearGradient>
     <linearGradient id="drop" x1="0" y1="0" x2=".3" y2="1">
-      <stop offset="0" stop-color="${night?"#DCE6FF":"#F2F8FF"}"/>
-      <stop offset="1" stop-color="${night?"#8B9EE4":"#93B8E2"}"/></linearGradient>
+      <stop offset="0" stop-color="#BFE0FF"/>
+      <stop offset="1" stop-color="#4E93E0"/></linearGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2=".3" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#9FC6E8"/></linearGradient>
     <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFE07A"/><stop offset="1" stop-color="#FFA318"/></linearGradient>
+      <stop offset="0" stop-color="#FFE9A0"/><stop offset="1" stop-color="#FFA318"/></linearGradient>
+    <radialGradient id="boltGlow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFD873" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#FFD873" stop-opacity="0"/></radialGradient>
   </defs>`;
 
   let g="";
@@ -795,42 +807,66 @@ function skySVG(){
         fill="#FFF6DC" opacity=".95"/>`;
   }
 
-  const cx=72, cy=cloudy?24:27, r=15;
-  g+=`<circle cx="${cx}" cy="${cy}" r="${r*1.9}" fill="url(#glow)"/>`;
+  // smaller and shifted up when weather-driven clouds are in front — reads as "further back".
+  // the single decorative puff (weather off) doesn't shrink it, same as before.
+  const cx=72, r=cloudy?11:15, cy=cloudy?18:27;
 
-  if(night){
-    // full soft orb with a crater or two — reads as "moon" instantly, no phase needed
-    g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#moon)"/>
-        <circle cx="${cx-5}" cy="${cy-4}" r="3" fill="#DADCF4" opacity=".55"/>
-        <circle cx="${cx+4}" cy="${cy+3}" r="2.1" fill="#DADCF4" opacity=".45"/>
-        <circle cx="${cx+2}" cy="${cy-6}" r="1.4" fill="#DADCF4" opacity=".4"/>`;
-  }else{
-    g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#sun)"/>
-        <ellipse cx="${cx-5}" cy="${cy-6}" rx="6" ry="4.4" fill="#FFFFFF" opacity=".4"/>`;
+  // a storm hides the sun/moon entirely rather than shrinking it behind the clouds —
+  // nothing to peek through when it's actually stormy
+  if(wx!=="storm"){
+    g+=`<circle cx="${cx}" cy="${cy}" r="${r*1.9}" fill="url(#glow)"/>`;
+    if(night){
+      // true crescent from the real moon phase — same math the Rhythm tab uses for the phase name
+      g+=`<path d="${moonPath(cx,cy,r,moonAge())}" fill="url(#moon)"/>`;
+    }else{
+      g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#sun)"/>
+          <ellipse cx="${cx-r*.33}" cy="${cy-r*.4}" rx="${r*.4}" ry="${r*.3}" fill="#FFFFFF" opacity=".4"/>`;
+    }
   }
 
-  const puff=(x,y,sc,o)=>`<g opacity="${o}">
-    <ellipse cx="${x}" cy="${y}" rx="${18*sc}" ry="${11*sc}" fill="url(#cl)"/>
-    <ellipse cx="${x+14*sc}" cy="${y+3.5*sc}" rx="${11.5*sc}" ry="${8*sc}" fill="url(#cl)"/>
-    <ellipse cx="${x-14*sc}" cy="${y+4*sc}" rx="${10.5*sc}" ry="${7*sc}" fill="url(#cl)"/>
-    <ellipse cx="${x-5*sc}" cy="${y-5.5*sc}" rx="${7.5*sc}" ry="${3.6*sc}" fill="#FFFFFF" opacity=".4"/></g>`;
+  // three different cloud silhouettes — not one shape rescaled — so a multi-cloud sky
+  // reads as an actual formation instead of the same puff cloned smaller
+  const cloudA=(x,y,sc,o)=>`<g opacity="${o}">
+    <circle cx="${x-7*sc}" cy="${y-4*sc}" r="${9*sc}" fill="url(#cl)"/>
+    <circle cx="${x+5*sc}" cy="${y}" r="${12*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x-2*sc}" cy="${y-9*sc}" rx="${5*sc}" ry="${2.6*sc}" fill="#FFFFFF" opacity=".55"/></g>`;
+  const cloudB=(x,y,sc,o)=>`<g opacity="${o}">
+    <circle cx="${x-9*sc}" cy="${y-2*sc}" r="${7*sc}" fill="url(#cl)"/>
+    <circle cx="${x+2*sc}" cy="${y-5*sc}" r="${9*sc}" fill="url(#cl)"/>
+    <circle cx="${x+9*sc}" cy="${y+2*sc}" r="${8.5*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x-1*sc}" cy="${y-10*sc}" rx="${4.5*sc}" ry="${2.3*sc}" fill="#FFFFFF" opacity=".5"/></g>`;
+  const cloudC=(x,y,sc,o)=>`<g opacity="${o}">
+    <circle cx="${x-10*sc}" cy="${y-6*sc}" r="${13*sc}" fill="url(#cl)"/>
+    <circle cx="${x+9*sc}" cy="${y-2*sc}" r="${16*sc}" fill="url(#cl)"/>
+    <circle cx="${x-2*sc}" cy="${y+4*sc}" r="${14*sc}" fill="url(#cl)"/>
+    <ellipse cx="${x-4*sc}" cy="${y-13*sc}" rx="${7*sc}" ry="${3.4*sc}" fill="#FFFFFF" opacity=".55"/></g>`;
 
-  if(cloudy){
-    g+=puff(78,38,.5,.9);
-    g+=puff(60,42,.9,1);
-  }else if(night){
-    g+=puff(66,44,.62,.95);      // the reference look: a small cloud nestled under the moon
-  }else if(ph==="day"){
-    g+=puff(50,47,.58,.72);
-  }
+  // back-to-front slots; cloudCount picks from the back so a lone cloud still sits in the
+  // "main" spot next to the sun/moon. bottom = lowest point each shape reaches, for placing
+  // precipitation cleanly beneath whatever's actually on screen instead of a fixed guess.
+  const slots=[
+    {fn:cloudA, x:42, y:34, sc:.5,  o:.55, bottom:40},
+    {fn:cloudB, x:60, y:48, sc:.62, o:.78, bottom:54.5},
+    {fn:cloudC, x:82, y:40, sc:.8,  o:.95, bottom:54.4},
+  ];
+  const active=slots.slice(3-cloudCount);
+  active.forEach(s=>{ g+=s.fn(s.x,s.y,s.sc,s.o); });
+  const precipY=active.length?Math.max(...active.map(s=>s.bottom))+1.5:56;
 
   if(wx==="rain")
-    g+=[50,62,74].map((x,i)=>`<path d="M${x} ${50+(i%2)*3}c-2.4 2.8-3.7 4.4-3.7 5.8a3.7 3.7 0 0 0 7.4 0c0-1.4-1.3-3-3.7-5.8z"
-      fill="url(#drop)"/>`).join("");
+    g+=[0,1,2,3,4].map(i=>{
+      const x=50+i*8, y=precipY+(i%2)*2;
+      // a thin white streak beside each drop for a bit of glossy depth
+      return `<line x1="${x+1.3}" y1="${y+.5}" x2="${x-1}" y2="${y+6}" stroke="#FFFFFF"
+          stroke-width=".9" stroke-linecap="round" opacity=".35"/>
+        <line x1="${x}" y1="${y}" x2="${x-2.4}" y2="${y+6}" stroke="url(#drop)"
+          stroke-width="2" stroke-linecap="round" opacity="${i%2?.85:1}"/>`;
+    }).join("");
   if(wx==="snow")
-    g+=[50,62,74].map((x,i)=>`<circle cx="${x}" cy="${53+(i%2)*3}" r="2.7" fill="#FFFFFF" opacity=".95"/>`).join("");
+    g+=[50,62,74].map((x,i)=>`<circle cx="${x}" cy="${precipY+2+(i%2)*2}" r="2.8" fill="url(#snow)" opacity=".95"/>`).join("");
   if(wx==="storm")
-    g+=`<path d="M67 45l-7 9.6h4.8l-2.7 6.9 9.6-10.9h-5L69 45z" fill="url(#bolt)"/>`;
+    g+=`<circle cx="70" cy="${precipY+4}" r="10" fill="url(#boltGlow)"/>
+        <path d="M71 ${precipY-1}l-4.6 6.3h3.1l-1.8 4.6 6.4-7.3h-3.3l3.3-3.6z" fill="url(#bolt)"/>`;
   if(wx==="fog")
     g+=[30,39,48].map((y,i)=>`<rect x="${40+i*6}" y="${y}" width="${58-i*12}" height="5" rx="2.5"
       fill="url(#cl)" opacity="${.8-i*.14}"/>`).join("");
@@ -870,10 +906,10 @@ async function refreshWeather(force){
       lon=Math.round(pos.coords.longitude*10)/10;
     }
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-      `&current=temperature_2m,weather_code&daily=sunrise,sunset&timezone=auto&forecast_days=1`);
+      `&current=temperature_2m,weather_code,cloud_cover&daily=sunrise,sunset&timezone=auto&forecast_days=1`);
     const j=await r.json();
     S.sky={at:Date.now(),lat,lon,code:j.current.weather_code,temp:j.current.temperature_2m,
-      sunrise:j.daily.sunrise[0],sunset:j.daily.sunset[0]};
+      cover:j.current.cloud_cover,sunrise:j.daily.sunrise[0],sunset:j.daily.sunset[0]};
     save(); paintSky(); applyTheme();
   }catch(e){ /* offline, denied, or unreachable — the clock-based sky still stands */ }
 }
