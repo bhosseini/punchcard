@@ -75,6 +75,22 @@ setTimeout(() => {
   check("toggling a timer only rebuilds the row that changed", touched.size <= 1,
     `${touched.size} of ${obsRows.length} rows had their children replaced`);
 
+  // .row carries `animation:rowin` (fade in from opacity 0, translateY(-8px)).
+  // Re-inserting a node that is already in place still counts as an insertion and
+  // restarts that animation, so re-appending every row each render replayed the entry
+  // animation on the whole list — the fade-and-slide flash on every play/pause tap.
+  // Nothing structural changed here, so the container must not be touched at all.
+  const listEl = $("#m-today");
+  const listObs = new window.MutationObserver(() => {});
+  listObs.observe(listEl, { childList: true });
+  click(play);
+  click(play);
+  const listRecs = listObs.takeRecords();
+  listObs.disconnect();
+  const moved = listRecs.reduce((a, r) => a + r.addedNodes.length + r.removedNodes.length, 0);
+  check("toggling a timer doesn't re-insert rows (which would replay rowin)", moved === 0,
+    `${moved} node insertions/removals on the list container`);
+
   // The progress bar only renders once sec > 0, so it pops into existence one tick
   // after you hit play. In normal flow that added height:3px + margin-top:8px to the
   // row and shoved the whole list down. jsdom can't measure layout, so assert the

@@ -309,7 +309,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14b";
+const VERSION="2026.08.14c";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -736,21 +736,27 @@ function renderToday(total){
   // it, so building the final order this way reuses every unchanged row untouched.
   const byId=new Map();
   [...m.children].forEach(c=>{ if(c.classList?.contains("row")) byId.set(c.dataset.id,c); });
+  let sect=[...m.children].find(c=>c.className==="sect");
 
-  open.forEach(t=>m.appendChild(row(t,total,byId.get(String(t.id)))));
+  /* Place a node at the next slot, but ONLY touch the DOM if it isn't already
+     there. Re-inserting a node that's already in place still counts as an
+     insertion, which restarts its CSS animation — and .row carries
+     `animation:rowin` (fade from opacity 0, translateY(-8px)). Re-appending
+     every row on every render replayed that entry animation on the whole list,
+     which is the fade-and-slide "refresh" flash on each play/pause tap. */
+  let idx=0;
+  const place=node=>{
+    if(m.children[idx]!==node) m.insertBefore(node, m.children[idx]||null);
+    idx++;
+  };
 
-  const oldSect=[...m.children].find(c=>c.className==="sect");
+  open.forEach(t=>place(row(t,total,byId.get(String(t.id)))));
   if(done.length){
-    const h=(oldSect&&oldSect.textContent==="Punched out")?oldSect:document.createElement("div");
-    h.className="sect"; h.textContent="Punched out";
-    m.appendChild(h);
-    done.forEach(t=>m.appendChild(row(t,total,byId.get(String(t.id)))));
-  }else if(oldSect){
-    oldSect.remove();
+    if(!sect){ sect=document.createElement("div"); sect.className="sect"; sect.textContent="Punched out"; }
+    place(sect);
+    done.forEach(t=>place(row(t,total,byId.get(String(t.id)))));
   }
-
-  const wantIds=new Set(S.tasks.map(t=>String(t.id)));
-  [...m.children].forEach(c=>{ if(c.classList?.contains("row")&&!wantIds.has(c.dataset.id)) c.remove(); });
+  while(m.children.length>idx) m.removeChild(m.children[idx]);   // anything left over is stale
 }
 
 function row(t,total,existing){
