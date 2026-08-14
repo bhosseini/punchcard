@@ -61,6 +61,8 @@ h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;lette
   color:var(--ink-40);letter-spacing:.08em;margin-top:5px;}
 
 nav{display:flex;gap:6px;padding:0 22px 8px;flex:none;}
+/* these all set display, which beats the plain [hidden] attribute */
+nav[hidden],.strip[hidden],.striplab[hidden],#datelab[hidden],footer[hidden]{display:none;}
 nav button{flex:1;border:1px solid var(--rule);background:transparent;color:var(--ink-40);
   font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
   padding:9px 0;border-radius:8px;cursor:pointer;transition:all .18s ease;}
@@ -112,6 +114,41 @@ main[hidden]{display:none;}
   background:var(--tray);overflow:hidden;}
 .bar i{display:block;height:100%;border-radius:2px;transition:width .6s ease;}
 .act{margin-left:auto;flex:none;}
+
+/* ── idea drawer ─────────────────────────────
+   Same flat ink-on-paper rules as the card: no shadows, mono for labels and meta,
+   the row's own rule line rather than a boxed card. */
+.eyebrow .grow{flex:1;text-align:left;padding-left:8px;}
+.idea{padding:13px 0;border-bottom:1px solid var(--rule);animation:rowin .3s cubic-bezier(.2,.9,.3,1.2);}
+.idea .ititle{font-size:15.5px;font-weight:500;line-height:1.3;word-break:break-word;cursor:pointer;}
+.idea .inote{font-size:13px;color:var(--ink-40);line-height:1.5;margin-top:4px;white-space:pre-wrap;
+  word-break:break-word;}
+.idea .iact{display:flex;gap:8px;margin-top:10px;align-items:center;}
+.ibtn{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--rule);background:transparent;color:var(--ink);padding:8px 10px;
+  border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;}
+.ibtn:active{transform:scale(.96);}
+.ibtn.go{border-color:var(--violet);color:var(--violet);}
+.ibtn svg{width:12px;height:12px;flex:none;}
+.ilink{margin-left:auto;color:var(--teal);display:flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;}
+
+/* month grid for scheduling an idea */
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.calhead b{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;}
+.calnav{background:none;border:1px solid var(--rule);border-radius:8px;color:var(--ink);
+  cursor:pointer;padding:6px 9px;line-height:0;}
+.calnav:disabled{opacity:.25;cursor:default;}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cdow{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-40);text-align:center;padding-bottom:4px;}
+.cday{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;
+  font-family:var(--mono);font-size:12.5px;cursor:pointer;background:var(--slot);
+  border:1px solid transparent;color:var(--ink);}
+.cday.pad{visibility:hidden;cursor:default;}
+.cday.out{opacity:.25;pointer-events:none;}
+.cday.today{border-color:var(--violet);color:var(--violet);}
+.cday.on{background:var(--violet);border-color:var(--violet);color:#fff;}
 .play{width:36px;height:36px;border-radius:10px;border:1px solid var(--rule);background:var(--card);
   display:grid;place-items:center;cursor:pointer;transition:all .15s ease;padding:0;}
 .play.on{background:var(--orange);border-color:var(--orange);color:#fff;}
@@ -138,9 +175,10 @@ main[hidden]{display:none;}
 .railbtn:focus-visible,.railday:focus-visible{outline:2px solid var(--violet);outline-offset:2px;}
 footer{flex:none;padding:9px 16px calc(9px + var(--sb));background:var(--card);border-top:1px solid var(--rule);}
 .compose{display:flex;align-items:center;gap:8px;}
-#new{flex:1;border:none;background:transparent;font-size:15.5px;padding:10px 2px;min-width:0;}
-#new:focus{outline:none;}
-#new::placeholder{color:var(--ink-40);}
+#new,#newidea{flex:1;border:none;background:transparent;font-size:15.5px;padding:10px 2px;min-width:0;
+  color:var(--ink);font-family:var(--body);}
+#new:focus,#newidea:focus{outline:none;}
+#new::placeholder,#newidea::placeholder{color:var(--ink-40);}
 .tog{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
   border:1px solid var(--rule);background:transparent;color:var(--ink-40);padding:7px 9px;
   border-radius:7px;cursor:pointer;transition:all .15s;}
@@ -228,6 +266,18 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
   <header>
     <div class="eyebrow">
       <span id="datelab">—</span>
+      <button class="icobtn" id="backpunch" aria-label="Back to the card" hidden>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span id="ideacount" class="grow"></span>
+      <button class="icobtn" id="drawerbtn" aria-label="Idea drawer">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/>
+          <circle cx="12" cy="7.5" r=".9" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="16.5" r=".9" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
       <button class="icobtn" id="gear" aria-label="Settings">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
@@ -251,6 +301,7 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
 
   <main id="m-today"></main>
   <main id="m-rhythm" hidden></main>
+  <main id="m-ideas" hidden></main>
 
   <div id="rail">
     <button class="railbtn" id="prevday" aria-label="Previous day">
@@ -269,6 +320,13 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
       <input id="new" placeholder="Add to the card…" autocomplete="off" enterkeyhint="done">
       <button class="tog" id="dailytog" aria-pressed="false">daily</button>
       <button class="plus" id="addbtn" aria-label="Add task">+</button>
+    </div>
+  </footer>
+
+  <footer id="ideacomposer" hidden>
+    <div class="compose">
+      <input id="newidea" placeholder="Something worth doing…" autocomplete="off" enterkeyhint="done">
+      <button class="plus" id="addideabtn" aria-label="Add idea">+</button>
     </div>
   </footer>
 </div>
@@ -309,7 +367,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14c";
+const VERSION="2026.08.14d";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -322,7 +380,7 @@ const store={
 };
 
 const blank={
-  rev:0, savedAt:0, tasks:[], plans:{}, history:{}, lastDay:null, running:null,
+  rev:0, savedAt:0, tasks:[], plans:{}, history:{}, ideas:[], lastDay:null, running:null,
   settings:{theme:"auto",sound:true,haptics:true,cardHours:8,dayStart:4,autoStop:4,sky:true,weather:false}
 };
 const demo=[
@@ -368,7 +426,7 @@ function checkAutoStop(){
 
 function hydrate(d){
   d.settings={...blank.settings,...(d.settings||{})};
-  d.tasks=d.tasks||[]; d.plans=d.plans||{}; d.history=d.history||{}; d.rev=d.rev||0;
+  d.tasks=d.tasks||[]; d.plans=d.plans||{}; d.history=d.history||{}; d.ideas=d.ideas||[]; d.rev=d.rev||0;
   d.tasks.forEach((t,i)=>{ if(t.hueIdx==null) t.hueIdx=i; });
   hueSeq=Math.max(hueSeq,...d.tasks.map(t=>t.hueIdx+1),0);
   return d;
@@ -400,9 +458,18 @@ function save(passive){
 }
 const queueRender=()=>setTimeout(()=>{ if(!drag) render(); },0);
 
+/* function declaration, not const: load() runs at the top of the script and calls
+   mk(), which lands here before a const would have initialized */
+function newId(){ return Date.now()+Math.random().toString(36).slice(2,6); }
 function mk(title,daily,target){
-  return {id:Date.now()+Math.random().toString(36).slice(2,6),title,daily:!!daily,
+  return {id:newId(),title,daily:!!daily,
     done:false,sec:0,target:target||null,created:Date.now(),hueIdx:hueSeq++};
+}
+/* An idea is a thing worth doing with no date attached yet. It leaves the drawer
+   when it's pulled onto a card or scheduled, and comes back if the day ends with
+   it unfinished — see rollover(). */
+function mkIdea(title,notes,url){
+  return {id:newId(),title,notes:notes||"",url:url||"",created:Date.now()};
 }
 
 /* ── day handling ─────────────────────────── */
@@ -499,6 +566,13 @@ function rollover(){
   if(S.lastDay===k) return;
   stopTimer();
   if(S.lastDay) snapshot(S.lastDay);
+  /* An idea pulled onto the card but not punched by day's end goes back to the
+     drawer instead of carrying forward forever — otherwise the thing you meant to
+     do "sometime" quietly turns into a chore you drag between days. It keeps its
+     notes and link, so nothing is lost on the round trip. */
+  S.tasks.filter(t=>t.fromIdea&&!t.done).forEach(t=>
+    S.ideas.unshift(mkIdea(t.title,t.fromIdea.notes,t.fromIdea.url)));
+  S.tasks=S.tasks.filter(t=>!(t.fromIdea&&!t.done));
   S.tasks=S.tasks.filter(t=>t.daily||!t.done).map(t=>({...t,done:false,sec:0,carried:!t.daily}));
   Object.keys(S.plans).sort().forEach(d=>{                 // arrivals, including any missed days
     if(d>k) return;
@@ -607,6 +681,12 @@ function render(){
   const d=new Date(); d.setDate(d.getDate()+view);
 
   $("#datelab").textContent=d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}).toUpperCase();
+  $("#drawerbtn").hidden = tab==="ideas";
+  $("#backpunch").hidden = tab!=="ideas";
+  $("#datelab").hidden = tab==="ideas";       // the drawer isn't tied to a day
+  $("#ideacount").textContent = tab==="ideas"
+    ? (S.ideas.length?S.ideas.length+" saved":"") : "";
+  $("nav").hidden = tab==="ideas";
   $("#rail").hidden = tab!=="today";
   $("#prevday").disabled = view<=backLimit();
   $("#nextday").disabled = view>=MAX_AHEAD;
@@ -618,17 +698,22 @@ function render(){
     if(S.greeting?.slot!==slot){ S.greeting={slot,text:pickGreeting()}; save(true); }
     $("#screen").textContent = S.greeting.text;
   }else{
-    $("#screen").textContent = tab==="today"?dayName(view):"Rhythm";
+    $("#screen").textContent = tab==="ideas"?"Idea Drawer":tab==="today"?dayName(view):"Rhythm";
   }
   $("#warn").hidden = storageOK;
   paintSky();
   $("#m-today").hidden = tab!=="today";
-  $("#m-rhythm").hidden = tab==="today";
+  $("#m-rhythm").hidden = tab!=="rhythm";
+  $("#m-ideas").hidden = tab!=="ideas";
   $("#composer").hidden = tab!=="today"||view<0;
+  $("#ideacomposer").hidden = tab!=="ideas";
   $("#new").placeholder = view>0?`Plan for ${dayName(view).toLowerCase()}…`:"Add to the card…";
 
   const strip=$("#strip"), lab=$(".striplab");
-  if(tab==="today"&&view>0){                       // a day that hasn't happened yet
+  if(tab==="ideas"){                               // no card, no clock — just the drawer
+    strip.hidden=true; lab.hidden=true;
+    renderIdeas();
+  }else if(tab==="today"&&view>0){                 // a day that hasn't happened yet
     const plan=planFor(key), dailies=S.tasks.filter(t=>t.daily);
     strip.hidden=true; lab.hidden=true;
     $("#count").textContent=`${plan.length+dailies.length} lined up`;
@@ -714,6 +799,148 @@ function renderPast(key,h){
   const note=document.createElement("div"); note.className="empty"; note.style.padding="24px 0 8px";
   note.textContent="Past days are a record — nothing to change here.";
   m.appendChild(note);
+}
+
+/* ── the idea drawer ──────────────────────────
+   Things worth doing with no date on them yet. An idea leaves the drawer two ways:
+   onto today's card, or onto a future day's plan. Either way it stops being an idea
+   and becomes a task; rollover() hands it back if the day ends unfinished. */
+function renderIdeas(){
+  const m=$("#m-ideas"); m.innerHTML="";
+  if(!S.ideas.length){
+    m.innerHTML=`<div class="empty">The drawer's empty.<br>
+      Put something here when it turns up — a place to go, a thing to try.<br>
+      No date needed until you're ready.</div>`;
+    return;
+  }
+  S.ideas.forEach(idea=>{
+    const el=document.createElement("div"); el.className="idea"; el.dataset.id=idea.id;
+    el.innerHTML=`
+      <div class="ititle">${esc(idea.title)}</div>
+      ${idea.notes?`<div class="inote">${esc(idea.notes)}</div>`:""}
+      <div class="iact">
+        <button class="ibtn go" data-act="today">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+            stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="M12 5l7 7-7 7"/></svg>
+          today
+        </button>
+        <button class="ibtn" data-act="plan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>
+            <path d="M8 3v4"/><path d="M16 3v4"/></svg>
+          schedule
+        </button>
+        ${idea.url?`<a class="ilink" href="${esc(idea.url)}" target="_blank" rel="noopener noreferrer">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+            stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/>
+            <path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>link</a>`:""}
+      </div>`;
+    el.querySelector(".ititle").onclick=()=>ideaSheet(idea);
+    el.querySelector('[data-act="today"]').onclick=()=>pullIdea(idea);
+    el.querySelector('[data-act="plan"]').onclick=()=>planSheet(idea);
+    m.appendChild(el);
+  });
+}
+
+/* onto today's card. Keeps notes/url on the task so the trip back is lossless. */
+function pullIdea(idea){
+  const i=S.ideas.indexOf(idea); if(i<0) return;
+  S.ideas.splice(i,1);
+  const t=mk(idea.title,false,null);
+  t.fromIdea={notes:idea.notes,url:idea.url};
+  S.tasks.push(t);
+  buzz(10); persist(); render();
+  toast("On today's card",()=>{
+    S.tasks=S.tasks.filter(x=>x.id!==t.id);
+    S.ideas.splice(i,0,idea); persist(); render();
+  });
+}
+
+/* onto a future day. Lands in S.plans, which rollover() already delivers. */
+function scheduleIdea(idea,offset){
+  const i=S.ideas.indexOf(idea); if(i<0) return;
+  S.ideas.splice(i,1);
+  const t=mk(idea.title,false,null);
+  t.fromIdea={notes:idea.notes,url:idea.url};
+  const key=keyAt(offset);
+  planFor(key).push(t);
+  buzz(10); persist(); render(); closeSheet();
+  toast("Planned for "+dayName(offset).toLowerCase(),()=>{
+    const list=planFor(key); const j=list.findIndex(x=>x.id===t.id);
+    if(j>=0) list.splice(j,1);
+    S.ideas.splice(i,0,idea); persist(); render();
+  });
+}
+
+function ideaSheet(idea){
+  const isNew=!idea;
+  const d=idea||mkIdea("","","");
+  openSheet(`
+    <h2>${isNew?"New idea":"Edit idea"}</h2>
+    <div class="field"><label>What is it</label>
+      <input type="text" id="i-title" value="${esc(d.title)}" placeholder="Visit the botanical garden"></div>
+    <div class="field"><label>Notes</label>
+      <textarea id="i-notes" rows="3" placeholder="Why, who with, anything worth remembering">${esc(d.notes)}</textarea></div>
+    <div class="field"><label>Link</label>
+      <input type="url" id="i-url" value="${esc(d.url)}" placeholder="https://…" inputmode="url"></div>
+    <button class="sbtn" id="i-save">${isNew?"Put it in the drawer":"Save changes"}</button>
+    ${isNew?"":`<button class="sbtn danger" id="i-del" style="margin-top:8px">Remove from drawer</button>`}`);
+  $("#i-save").onclick=()=>{
+    const title=$("#i-title").value.trim(); if(!title){ $("#i-title").focus(); return; }
+    d.title=title; d.notes=$("#i-notes").value.trim(); d.url=$("#i-url").value.trim();
+    if(isNew) S.ideas.unshift(d);
+    persist(); render(); closeSheet();
+  };
+  const del=$("#i-del");
+  if(del) del.onclick=()=>{
+    const i=S.ideas.indexOf(idea); if(i<0) return;
+    S.ideas.splice(i,1); persist(); render(); closeSheet();
+    toast("Removed “"+idea.title+"”",()=>{ S.ideas.splice(i,0,idea); persist(); render(); });
+  };
+  setTimeout(()=>{ if(isNew) $("#i-title").focus(); },60);
+}
+
+/* Month grid. Only today..MAX_AHEAD are selectable — the same window the day rail
+   allows, since a plan has to land on a day the card can actually reach. */
+let calMonth=null;
+function planSheet(idea){
+  calMonth=calMonth||new Date();
+  const first=new Date(calMonth.getFullYear(),calMonth.getMonth(),1);
+  const days=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,0).getDate();
+  const todayMid=new Date(); todayMid.setHours(12,0,0,0);
+  const offsetOf=d=>Math.round((d-todayMid)/864e5);
+  const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  let cells="";
+  ["s","m","t","w","t","f","s"].forEach(d=>cells+=`<div class="cdow">${d}</div>`);
+  for(let i=0;i<first.getDay();i++) cells+=`<div class="cday pad"></div>`;
+  for(let n=1;n<=days;n++){
+    const d=new Date(calMonth.getFullYear(),calMonth.getMonth(),n,12);
+    const off=offsetOf(d), ok=off>=0&&off<=MAX_AHEAD;
+    cells+=`<div class="cday${ok?"":" out"}${off===0?" today":""}" data-off="${off}">${n}</div>`;
+  }
+  const prevOk=new Date(calMonth.getFullYear(),calMonth.getMonth(),0)>=todayMid
+    || (calMonth.getMonth()===todayMid.getMonth()&&calMonth.getFullYear()===todayMid.getFullYear());
+  const lastAllowed=new Date(todayMid); lastAllowed.setDate(lastAllowed.getDate()+MAX_AHEAD);
+  const nextOk=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,1)<=lastAllowed;
+  openSheet(`
+    <h2>When?</h2>
+    <div class="calhead">
+      <button class="calnav" id="c-prev" ${prevOk?"":"disabled"} aria-label="Previous month">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <b>${M[calMonth.getMonth()]} ${calMonth.getFullYear()}</b>
+      <button class="calnav" id="c-next" ${nextOk?"":"disabled"} aria-label="Next month">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <div class="calgrid">${cells}</div>
+    <p class="note" style="text-align:center">Lands on that day's card when it arrives.</p>`);
+  $("#c-prev").onclick=()=>{ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()-1,1); planSheet(idea); };
+  $("#c-next").onclick=()=>{ calMonth=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,1); planSheet(idea); };
+  $$(".cday[data-off]").forEach(c=>{
+    if(c.classList.contains("out")) return;
+    c.onclick=()=>scheduleIdea(idea,parseInt(c.dataset.off));
+  });
 }
 
 /* Every render() call used to wipe #m-today and rebuild every row from scratch —
@@ -1210,6 +1437,36 @@ $("#m-today").addEventListener("pointerdown",e=>{
   if(drag||tab!=="today"||(e.pointerType==="mouse"&&e.button!==0)) return;
   swipe={x:e.clientX,y:e.clientY,t:Date.now(),on:false,dead:false};
 });
+
+/* Swipe right anywhere in the drawer to get back to the card — same commit-sideways
+   rule as the day swipe, so it doesn't fight the vertical scroll. */
+let ideaSwipe=null;
+$("#m-ideas").addEventListener("pointerdown",e=>{
+  if(e.pointerType==="mouse"&&e.button!==0) return;
+  ideaSwipe={x:e.clientX,y:e.clientY,on:false,dead:false};
+});
+document.addEventListener("pointermove",e=>{
+  if(!ideaSwipe||ideaSwipe.dead) return;
+  const dx=e.clientX-ideaSwipe.x, dy=e.clientY-ideaSwipe.y;
+  if(!ideaSwipe.on){
+    if(Math.abs(dx)<8&&Math.abs(dy)<8) return;
+    if(Math.abs(dx)>=Math.abs(dy)) ideaSwipe.on=true;
+    else { ideaSwipe.dead=true; return; }
+  }
+  const m=$("#m-ideas");
+  m.style.transition="none";
+  m.style.transform=`translateX(${Math.max(0,dx)*0.4}px)`;
+});
+function endIdeaSwipe(e){
+  if(!ideaSwipe) return;
+  const on=ideaSwipe.on, dx=(e.clientX??ideaSwipe.x)-ideaSwipe.x;
+  ideaSwipe=null;
+  const m=$("#m-ideas");
+  m.style.transition="transform .2s ease"; m.style.transform="";
+  if(on&&dx>50) goCard();
+}
+document.addEventListener("pointerup",endIdeaSwipe);
+document.addEventListener("pointercancel",endIdeaSwipe);
 document.addEventListener("pointermove",e=>{
   if(!swipe||swipe.dead||drag) return;
   const dx=e.clientX-swipe.x, dy=e.clientY-swipe.y;
@@ -1385,6 +1642,23 @@ $$("nav button").forEach(b=>b.onclick=()=>{
   tab=b.dataset.tab; if(tab==="rhythm") view=0;
   $$("nav button").forEach(x=>x.setAttribute("aria-selected",x===b)); render();
 });
+
+/* ── idea drawer wiring ───────────────────── */
+function goIdeas(){ tab="ideas"; view=0; buzz(8); render(); }
+function goCard(){
+  tab="today";
+  $$("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab==="today"));
+  render();
+}
+$("#drawerbtn").onclick=goIdeas;
+$("#backpunch").onclick=goCard;
+$("#addideabtn").onclick=()=>{
+  const v=$("#newidea").value.trim();
+  if(!v){ ideaSheet(null); return; }        // empty box opens the full form
+  S.ideas.unshift(mkIdea(v)); $("#newidea").value="";
+  buzz(8); persist(); render();
+};
+$("#newidea").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#addideabtn").click(); });
 
 /* heartbeat: repaints the running row. It does NOT accumulate time —
    elapsed always comes from the stored start timestamp, so a throttled

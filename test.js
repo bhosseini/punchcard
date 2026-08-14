@@ -267,6 +267,59 @@ setTimeout(() => {
     check("palette doesn't repeat the previous day's", p2.idx !== beforeIdx,
       beforeIdx + " -> " + p2.idx);
 
+    // ── 9c-4. the idea drawer
+    click($("#drawerbtn"));
+    check("drawer opens", !$("#m-ideas").hidden && $("#m-today").hidden);
+    check("drawer heading", /Idea Drawer/.test($("#screen").textContent), $("#screen").textContent);
+    check("drawer hides the day rail and tabs", $("#rail").hidden && $("nav").hidden);
+    check("empty drawer says so", /drawer's empty/.test($("#m-ideas").textContent),
+      $("#m-ideas").textContent.slice(0, 40));
+
+    $("#newidea").value = "Visit the observatory";
+    click($("#addideabtn"));
+    check("quick-add puts an idea in the drawer", $$("#m-ideas .idea").length === 1,
+      $$("#m-ideas .idea").length);
+    check("idea persists to storage",
+      (JSON.parse(window.localStorage.getItem("punchcard.v1")).ideas || []).length === 1);
+
+    // pull it onto today's card; it should leave the drawer and carry its origin
+    click($$("#m-ideas .idea")[0].querySelector('[data-act="today"]'));
+    const pulledState = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    check("pulling an idea moves it onto the card",
+      pulledState.ideas.length === 0 &&
+      pulledState.tasks.some(t => t.title === "Visit the observatory"),
+      `ideas=${pulledState.ideas.length} onCard=${pulledState.tasks.some(t=>t.title==="Visit the observatory")}`);
+    const pulledTask = pulledState.tasks.find(t => t.title === "Visit the observatory");
+    check("pulled task remembers it came from the drawer", !!pulledTask.fromIdea,
+      JSON.stringify(pulledTask.fromIdea));
+
+    // end the day without punching it — it belongs back in the drawer, not carried forward
+    const rollPre = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    rollPre.lastDay = "2000-01-01";
+    window.localStorage.setItem("punchcard.v1", JSON.stringify(rollPre));
+    doc.dispatchEvent(new window.Event("visibilitychange"));
+    const rolled = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    check("an unfinished idea goes back to the drawer at day's end",
+      rolled.ideas.some(i => i.title === "Visit the observatory") &&
+      !rolled.tasks.some(t => t.title === "Visit the observatory"),
+      `inDrawer=${rolled.ideas.some(i=>i.title==="Visit the observatory")} onCard=${rolled.tasks.some(t=>t.title==="Visit the observatory")}`);
+
+    // scheduling drops it into the existing plans machinery
+    click($("#drawerbtn"));
+    const planIdea = $$("#m-ideas .idea")[0];
+    click(planIdea.querySelector('[data-act="plan"]'));
+    check("schedule sheet shows a month grid", $$(".cday[data-off]").length >= 28,
+      $$(".cday[data-off]").length);
+    const future = $$(".cday[data-off]").find(c => +c.dataset.off === 2);
+    click(future);
+    const planned = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    const ideaPlanKeys = Object.keys(planned.plans);
+    check("scheduling an idea files it under a future day",
+      ideaPlanKeys.length >= 1 && planned.ideas.length === 0,
+      `plans=${JSON.stringify(ideaPlanKeys)} ideas=${planned.ideas.length}`);
+    click($("#backpunch"));
+    check("back button returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
+
     // ── 9d. the sky
     check("sky art rendered", $("#sky").innerHTML.startsWith("<svg"),
           $("#sky").innerHTML.slice(0,20));

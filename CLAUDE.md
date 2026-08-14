@@ -66,6 +66,21 @@ The look is "manila time card": flat ink on paper stock. Specifics:
   - Past days are read-only, drawn from `S.history[dateKey]`.
   - `rollover()` runs at `settings.dayStart` (default 4am), not midnight.
 
+- **The idea drawer** (`tab==="ideas"`). A holding place for things worth doing that
+  have no date yet — a museum, a date-night idea, a place to eat. Deliberately *not* a
+  third day-view: it has no card, no strip, no timers, and `#datelab`/`nav`/`#rail` are
+  hidden while it's open. Reachable from the drawer icon in the eyebrow, and left by the
+  back chevron or a right-swipe (`#m-ideas`, same commit-sideways rule as the day swipe).
+  - An idea is `{id, title, notes, url, created}` in `S.ideas`.
+  - It leaves the drawer exactly two ways, and both turn it into a normal task:
+    onto today (`pullIdea` → `S.tasks`) or onto a future day (`scheduleIdea` →
+    `S.plans[key]`, reusing the planning machinery that already existed).
+  - The task carries `fromIdea:{notes,url}`. `rollover()` uses that to put it **back**
+    in the drawer if the day ends with it unpunched — the point of the drawer is that
+    an undated idea shouldn't silently become a chore you drag between days. A *punched*
+    one is finished and does not come back.
+  - The month grid only allows today..`MAX_AHEAD`, matching what the day rail can reach.
+
 - **The sky** (`skySVG()`): free-floating SVG shapes on transparency — moon/sun, stars,
   clouds, glow. **No background `<rect>`, no CSS mask.** An earlier version composited a
   full picture and faded its edges; the picture's gradient was lighter than the card and
@@ -97,7 +112,8 @@ other outbound request. If a feature seems to need the network, flag it explicit
 ## History / storage shape (for reference)
 
 `localStorage["punchcard.v1"]` holds one JSON blob: `{rev, savedAt, tasks[], plans{},
-history{}, lastDay, running, settings{}, sky?}`. Tasks: `{id, title, daily, done, sec,
-target, hueIdx, created, doneAt?, carried?}`. Settings: `{theme, sound, haptics,
+history{}, ideas[], lastDay, running, settings{}, sky?, palette?, greeting?}`. Tasks:
+`{id, title, daily, done, sec, target, hueIdx, created, doneAt?, carried?, fromIdea?}`.
+Ideas: `{id, title, notes, url, created}`. Settings: `{theme, sound, haptics,
 cardHours, dayStart, autoStop, sky, weather}`. There's an Export/Import (JSON) backup
 in Settings — the migration path when the storage origin changes (e.g. file:// → Pages).
