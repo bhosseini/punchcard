@@ -318,6 +318,25 @@ setTimeout(() => {
     check("scheduling an idea files it under a future day",
       ideaPlanKeys.length >= 1 && planned.ideas.length === 0,
       `plans=${JSON.stringify(ideaPlanKeys)} ideas=${planned.ideas.length}`);
+
+    // it shouldn't vanish from the drawer — it stays visible, greyed, under its own
+    // divider, read back out of S.plans rather than duplicated into S.ideas
+    check("a scheduled idea still shows in the drawer", $$("#m-ideas .idea.pending").length === 1,
+      $$("#m-ideas .idea.pending").length);
+    check("pending idea says when it lands",
+      /waiting for/.test($("#m-ideas .idea.pending").textContent),
+      $("#m-ideas .idea.pending").textContent.replace(/\s+/g, " ").trim());
+    check("the calendar divider appears", /On the calendar/.test($("#m-ideas").textContent));
+
+    // and it can come back
+    click($("#m-ideas .idea.pending .ititle"));
+    check("tapping a pending idea offers to unschedule it", !!$("#p-back"));
+    click($("#p-back"));
+    const returned = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    check("unscheduling puts it back in the drawer",
+      returned.ideas.length === 1 &&
+      !Object.values(returned.plans).flat().some(t => t.fromIdea),
+      `ideas=${returned.ideas.length} stillPlanned=${Object.values(returned.plans).flat().some(t=>t.fromIdea)}`);
     click($$("nav button").find(b=>b.dataset.tab==="today"));
     check("today tab returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
 

@@ -132,6 +132,13 @@ main[hidden]{display:none;}
 .ibtn svg{width:12px;height:12px;flex:none;}
 .ilink{margin-left:auto;color:var(--teal);display:flex;align-items:center;gap:5px;
   font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;}
+/* already on a day's plan — still visible so it doesn't feel lost, but clearly not
+   waiting on you the way the rest of the drawer is */
+.idea.pending{opacity:.45;}
+.idea.pending .ititle{cursor:pointer;}
+.idea .iwhen{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-40);
+  margin-top:5px;display:flex;align-items:center;gap:6px;}
+.idea .iwhen svg{width:11px;height:11px;flex:none;}
 
 /* month grid for scheduling an idea */
 .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -359,7 +366,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14f";
+const VERSION="2026.08.14g";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -796,7 +803,8 @@ function renderPast(key,h){
    and becomes a task; rollover() hands it back if the day ends unfinished. */
 function renderIdeas(){
   const m=$("#m-ideas"); m.innerHTML="";
-  if(!S.ideas.length){
+  const pending=pendingIdeas();
+  if(!S.ideas.length&&!pending.length){
     m.innerHTML=`<div class="empty">The drawer's empty.<br>
       Put something here when it turns up — a place to go, a thing to try.<br>
       No date needed until you're ready.</div>`;
@@ -829,6 +837,67 @@ function renderIdeas(){
     el.querySelector('[data-act="plan"]').onclick=()=>planSheet(idea);
     m.appendChild(el);
   });
+
+  if(!pending.length) return;
+  const h=document.createElement("div"); h.className="sect"; h.textContent="On the calendar";
+  m.appendChild(h);
+  pending.forEach(({key,t})=>{
+    const el=document.createElement("div"); el.className="idea pending";
+    el.innerHTML=`
+      <div class="ititle">${esc(t.title)}</div>
+      ${t.fromIdea.notes?`<div class="inote">${esc(t.fromIdea.notes)}</div>`:""}
+      <div class="iwhen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>
+          <path d="M8 3v4"/><path d="M16 3v4"/></svg>
+        waiting for ${esc(whenLabel(key))}
+      </div>`;
+    el.querySelector(".ititle").onclick=()=>pendingSheet(key,t);
+    m.appendChild(el);
+  });
+}
+
+function pendingSheet(key,t){
+  openSheet(`
+    <h2>${esc(t.title)}</h2>
+    <p class="note" style="margin-top:0">Lands on the card ${esc(whenLabel(key))},
+      ${new Date(key+"T12:00").toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}.</p>
+    <button class="sbtn" id="p-move">Pick a different day</button>
+    <button class="sbtn ghost" id="p-back" style="margin-top:8px">Back to the drawer</button>`);
+  $("#p-move").onclick=()=>{
+    const idea=mkIdea(t.title,t.fromIdea.notes,t.fromIdea.url);
+    const list=planFor(key), i=list.findIndex(x=>x.id===t.id);
+    if(i>=0) list.splice(i,1);
+    S.ideas.unshift(idea); persist();
+    planSheet(idea);                       // straight into the month grid
+  };
+  $("#p-back").onclick=()=>unschedule(key,t);
+}
+
+/* Scheduled ideas aren't copied into the drawer — they're read back out of S.plans,
+   so there's one source of truth and nothing to keep in sync if a plan changes. */
+function offsetOfKey(k){
+  return Math.round((new Date(k+"T12:00")-new Date(dayKey()+"T12:00"))/864e5);
+}
+function whenLabel(k){
+  const off=offsetOfKey(k);
+  // day names read as prose here ("waiting for tuesday"), same as the composer's
+  // placeholder; a date further out keeps its capital ("waiting for Aug 24")
+  if(off<=6) return dayName(off).toLowerCase();
+  return new Date(k+"T12:00").toLocaleDateString(undefined,{month:"short",day:"numeric"});
+}
+function pendingIdeas(){
+  const out=[];
+  Object.keys(S.plans).sort().forEach(k=>
+    (S.plans[k]||[]).forEach(t=>{ if(t.fromIdea) out.push({key:k,t}); }));
+  return out;
+}
+function unschedule(key,t){
+  const list=planFor(key), i=list.findIndex(x=>x.id===t.id);
+  if(i<0) return;
+  list.splice(i,1);
+  S.ideas.unshift(mkIdea(t.title,t.fromIdea.notes,t.fromIdea.url));
+  persist(); render(); closeSheet();
 }
 
 /* onto today's card. Keeps notes/url on the task so the trip back is lossless. */

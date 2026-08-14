@@ -83,6 +83,10 @@ The look is "manila time card": flat ink on paper stock. Specifics:
     an undated idea shouldn't silently become a chore you drag between days. A *punched*
     one is finished and does not come back.
   - The month grid only allows today..`MAX_AHEAD`, matching what the day rail can reach.
+  - A scheduled idea stays visible in the drawer, greyed, under an "On the calendar"
+    divider, and is read back out of `S.plans` rather than copied into `S.ideas` — one
+    source of truth, nothing to resync if the plan changes. Tapping it offers to move
+    the date or return it to the drawer.
 
 - **The sky** (`skySVG()`): free-floating SVG shapes on transparency — moon/sun, stars,
   clouds, glow. **No background `<rect>`, no CSS mask.** An earlier version composited a
