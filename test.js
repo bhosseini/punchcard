@@ -328,6 +328,8 @@ setTimeout(() => {
     check("sky art has depth", /linearGradient|radialGradient/.test($("#sky").innerHTML));
     check("sky has no background box", !/<rect width="104/.test($("#sky").innerHTML));
 
+
+
     // a render triggered by something unrelated (tapping play, adding a task) used to
     // rebuild the whole gradient-heavy sky SVG every time — visible as a flicker on
     // real devices. Comparing output alone is too weak a check here: skySVG()'s
@@ -349,6 +351,26 @@ setTimeout(() => {
     check("paintPalette skips rewriting CSS vars when nothing changed", setPropCalls === 0,
       "setProperty called " + setPropCalls + " times on a no-op render");
     window.CSSStyleDeclaration.prototype.setProperty = origSetProp;
+
+    // a properly overcast sky is just cloud — no disc peeking through, and a fuller field
+    const skyAt = (cover, phase) => {
+      window.phaseNow = () => phase;
+      window.eval(`S.settings.weather = true; S.sky = {code:2, cover:${cover}};`);
+      return window.skySVG();
+    };
+    const partly = skyAt(60, "day"), socked = skyAt(95, "day"), sockedNight = skyAt(95, "night");
+    const puffs = s => (s.match(/<g opacity=/g) || []).length;
+    // measure only circles filled with the cloud gradient — the sun's glow disc is the
+    // biggest circle in the frame and would otherwise dominate the comparison
+    const biggestCloud = s => Math.max(...[...s.matchAll(/r="([\d.]+)" fill="url\(#cl\)"/g)].map(m => +m[1]));
+    check("sun still shows through partial cloud", /url\(#sun\)/.test(partly));
+    check("overcast day hides the sun", !/url\(#sun\)/.test(socked));
+    check("overcast night hides the moon", !/url\(#moon\)/.test(sockedNight));
+    check("overcast adds a fourth cloud", puffs(socked) === 4 && puffs(partly) === 2,
+      `overcast=${puffs(socked)} partial=${puffs(partly)}`);
+    check("overcast clouds are bigger than partial ones",
+      biggestCloud(socked) > biggestCloud(partly),
+      `${biggestCloud(socked)} vs ${biggestCloud(partly)}`);
 
     click($("#gear"));
     check("weather is off by default",

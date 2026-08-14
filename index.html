@@ -359,7 +359,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14e";
+const VERSION="2026.08.14f";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -1129,7 +1129,11 @@ function skySVG(){
   // how many small clouds to draw, not how big one cloud gets — real cloud_cover % when we
   // have it (0-100 from open-meteo), a flat guess if weather's on but cover hasn't loaded yet,
   // or a single decorative puff when weather tracking is off entirely.
-  const cloudCount = cloudy ? (sk.cover!=null ? (sk.cover<15?0:sk.cover<40?1:sk.cover<70?2:3) : 2)
+  /* A properly overcast sky has no visible sun or moon — it's just cloud. Past this
+     point the disc is dropped entirely and the cloud field gets an extra puff and a
+     size bump, the way a flat grey day actually reads. */
+  const overcast = cloudy && sk.cover!=null && sk.cover>=85;
+  const cloudCount = cloudy ? (sk.cover!=null ? (sk.cover<15?0:sk.cover<40?1:sk.cover<70?2:sk.cover<85?3:4) : 2)
     : (!S.settings.weather&&(night||ph==="day")) ? 1 : 0;
 
   /* No background rectangle and no mask. Elements float on transparency and
@@ -1177,9 +1181,9 @@ function skySVG(){
   // the single decorative puff (weather off) doesn't shrink it, same as before.
   const cx=72, r=cloudy?11:15, cy=cloudy?18:27;
 
-  // a storm hides the sun/moon entirely rather than shrinking it behind the clouds —
-  // nothing to peek through when it's actually stormy
-  if(wx!=="storm"){
+  // a storm or a fully overcast sky hides the sun/moon entirely rather than shrinking
+  // it behind the clouds — nothing to peek through when it's that grey out
+  if(wx!=="storm"&&!overcast){
     g+=`<circle cx="${cx}" cy="${cy}" r="${r*1.9}" fill="url(#glow)"/>`;
     if(night){
       // true crescent from the real moon phase — same math the Rhythm tab uses for the phase name
@@ -1207,17 +1211,20 @@ function skySVG(){
     <circle cx="${x-2*sc}" cy="${y+4*sc}" r="${14*sc}" fill="url(#cl)"/>
     <ellipse cx="${x-4*sc}" cy="${y-13*sc}" rx="${7*sc}" ry="${3.4*sc}" fill="#FFFFFF" opacity=".55"/></g>`;
 
-  // back-to-front slots; cloudCount picks from the back so a lone cloud still sits in the
-  // "main" spot next to the sun/moon. bottom = lowest point each shape reaches, for placing
-  // precipitation cleanly beneath whatever's actually on screen instead of a fixed guess.
+  /* Back-to-front slots; cloudCount takes from the back so a lone cloud still sits in
+     the "main" spot next to the sun/moon, and a full sky fills leftward. `k` is how far
+     below y each shape's lowest circle reaches, in units of sc — derived from the shapes
+     above, so precipitation still lands under the clouds when they're scaled up. */
   const slots=[
-    {fn:cloudA, x:42, y:34, sc:.5,  o:.55, bottom:40},
-    {fn:cloudB, x:60, y:48, sc:.62, o:.78, bottom:54.5},
-    {fn:cloudC, x:82, y:40, sc:.65, o:.95, bottom:51.7},
+    {fn:cloudA, x:31, y:41, sc:.48, o:.5,  k:12},
+    {fn:cloudA, x:42, y:34, sc:.5,  o:.55, k:12},
+    {fn:cloudB, x:60, y:48, sc:.62, o:.78, k:10.5},
+    {fn:cloudC, x:82, y:40, sc:.65, o:.95, k:18},
   ];
-  const active=slots.slice(3-cloudCount);
+  const bump = overcast?1.16:1;                 // a heavier sky, not just a busier one
+  const active=slots.slice(4-cloudCount).map(s=>({...s,sc:s.sc*bump}));
   active.forEach(s=>{ g+=s.fn(s.x,s.y,s.sc,s.o); });
-  const precipY=active.length?Math.max(...active.map(s=>s.bottom))+1.5:56;
+  const precipY=active.length?Math.max(...active.map(s=>s.y+s.k*s.sc))+1.5:56;
 
   if(wx==="rain")
     g+=[0,1,2,3,4].map(i=>{
