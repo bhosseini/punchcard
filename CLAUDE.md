@@ -83,6 +83,10 @@ The look is "manila time card": flat ink on paper stock. Specifics:
     an undated idea shouldn't silently become a chore you drag between days. A *punched*
     one is finished and does not come back.
   - The month grid only allows today..`MAX_AHEAD`, matching what the day rail can reach.
+  - Traffic goes both ways: `deferTask()` on the edit sheet takes an unfinished task off
+    today's card, either onto tomorrow's plan or back into the drawer as an idea. Like
+    `removeTask()`, the time it logged today leaves with it — `snapshot()` rebuilds the
+    day's record from whatever is still on the card — so both actions offer undo.
   - A scheduled idea stays visible in the drawer, greyed, under an "On the calendar"
     divider, and is read back out of `S.plans` rather than copied into `S.ideas` — one
     source of truth, nothing to resync if the plan changes. Tapping it offers to move

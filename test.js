@@ -267,6 +267,39 @@ setTimeout(() => {
     check("palette doesn't repeat the previous day's", p2.idx !== beforeIdx,
       beforeIdx + " -> " + p2.idx);
 
+    // ── 9c-3b. deferring an unfinished task off today's card
+    const liveTask = JSON.parse(window.localStorage.getItem("punchcard.v1")).tasks.find(t => !t.done);
+    window.eval(`taskSheet(S.tasks.find(t => t.id === ${JSON.stringify(liveTask.id)}))`);
+    check("unfinished task offers tomorrow and the drawer", !!$("#e-bump") && !!$("#e-drawer"));
+    click($("#e-bump"));
+    const bumped = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    const tomorrowKey = Object.keys(bumped.plans).sort().pop();
+    check("bumping moves it onto tomorrow's plan",
+      !bumped.tasks.some(t => t.id === liveTask.id) &&
+      (bumped.plans[tomorrowKey] || []).some(t => t.title === liveTask.title),
+      `offCard=${!bumped.tasks.some(t=>t.id===liveTask.id)} planned=${(bumped.plans[tomorrowKey]||[]).length}`);
+    click($("#toastact"));   // undo
+    check("undo brings the bumped task back",
+      JSON.parse(window.localStorage.getItem("punchcard.v1")).tasks.some(t => t.id === liveTask.id));
+
+    window.eval(`taskSheet(S.tasks.find(t => t.id === ${JSON.stringify(liveTask.id)}))`);
+    click($("#e-drawer"));
+    const drawered = JSON.parse(window.localStorage.getItem("punchcard.v1"));
+    check("sending a task to the drawer makes it an idea",
+      !drawered.tasks.some(t => t.id === liveTask.id) &&
+      drawered.ideas.some(i => i.title === liveTask.title),
+      `offCard=${!drawered.tasks.some(t=>t.id===liveTask.id)} ideas=${drawered.ideas.length}`);
+    click($("#toastact"));   // undo
+    check("undo brings it back off the drawer",
+      JSON.parse(window.localStorage.getItem("punchcard.v1")).tasks.some(t => t.id === liveTask.id) &&
+      !JSON.parse(window.localStorage.getItem("punchcard.v1")).ideas.some(i => i.title === liveTask.title));
+
+    // a finished task has nothing to defer
+    window.eval(`(() => { const t = S.tasks.find(x => x.id === ${JSON.stringify(liveTask.id)});
+      t.done = true; taskSheet(t); t.done = false; })()`);
+    check("a punched task isn't offered a deferral", !$("#e-bump"));
+    window.eval("closeSheet()");
+
     // ── 9c-4. the idea drawer
     click($$("nav button").find(b=>b.dataset.tab==="ideas"));
     check("drawer opens", !$("#m-ideas").hidden && $("#m-today").hidden);

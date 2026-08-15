@@ -377,7 +377,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14h";
+const VERSION="2026.08.14i";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -667,6 +667,36 @@ function removeTask(t,planKey){
   if(activeId()===t.id) S.running=null;
   list.splice(i,1); persist(); render();
   toast("Removed “"+t.title+"”",()=>{ undoBuf.list.splice(undoBuf.i,0,undoBuf.t); persist(); render(); });
+}
+/* Deferring an unfinished task, deliberately rather than letting rollover carry it:
+   onto tomorrow's plan, or back into the drawer as an undated idea. Both take it off
+   today's card. Like removeTask(), the time it logged today goes with it — snapshot()
+   builds the day's record from whatever is on the card, so anything removed stops
+   counting. Undo puts it back in its old slot. */
+function deferTask(t,where){
+  const i=S.tasks.indexOf(t); if(i<0) return;
+  if(activeId()===t.id) stopTimer();
+  S.tasks.splice(i,1);
+  const back=()=>{ S.tasks.splice(i,0,t); persist(); render(); };
+
+  if(where==="tomorrow"){
+    const key=keyAt(1), copy={...t,done:false,sec:0,carried:false};
+    planFor(key).push(copy);
+    persist(); render(); closeSheet(); buzz(8);
+    toast("Moved to tomorrow",()=>{
+      const l=planFor(key), j=l.findIndex(x=>x.id===copy.id);
+      if(j>=0) l.splice(j,1);
+      back();
+    });
+  }else{
+    const idea=mkIdea(t.title,t.fromIdea?.notes,t.fromIdea?.url);
+    S.ideas.unshift(idea);
+    persist(); render(); closeSheet(); buzz(8);
+    toast("Put in the drawer",()=>{
+      S.ideas=S.ideas.filter(x=>x.id!==idea.id);
+      back();
+    });
+  }
 }
 function toast(msg,undo){
   clearTimeout(undoTimer);
@@ -1613,6 +1643,11 @@ function taskSheet(t,planKey){
       <button class="pill" data-move="-1" ${i===0?"disabled":""}>↑ move up</button>
       <button class="pill" data-move="1" ${i===list.length-1?"disabled":""}>↓ move down</button>
     </div>
+    ${(!planKey&&!t.done)?`<div class="sect">Not getting to it today?</div>
+    <div class="pillrow" style="margin:0 0 14px">
+      <button class="pill" id="e-bump">→ tomorrow</button>
+      <button class="pill" id="e-drawer">↓ idea drawer</button>
+    </div>`:""}
     <button class="sbtn" id="e-save">Save changes</button>
     <button class="sbtn danger" id="e-del" style="margin-top:8px">Remove from card</button>`);
 
@@ -1634,6 +1669,8 @@ function taskSheet(t,planKey){
     const sel=$("#e-target .pill.on"); t.target=sel?(parseInt(sel.dataset.v)||null):null;
     persist(); render(); closeSheet();
   };
+  if($("#e-bump")) $("#e-bump").onclick=()=>deferTask(t,"tomorrow");
+  if($("#e-drawer")) $("#e-drawer").onclick=()=>deferTask(t,"drawer");
   $("#e-del").onclick=()=>{ closeSheet(); removeTask(t,planKey); };
 }
 
