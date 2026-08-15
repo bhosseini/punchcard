@@ -377,7 +377,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14i";
+const VERSION="2026.08.14j";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -503,7 +503,7 @@ const GREET_GENERAL=["Clock in.","Lock in.","Time to cook.","We have work to do.
   "Eyes on the prize.","Get after it.","Make it happen.","Let's get to work.",
   "Punch the clock.","Dial it in.","Showtime.","Let's get this bread.","You know what to do.",
   "The list awaits...","The quest continues.","The journey continues.","Destiny awaits.",
-  "The path is clear.","The hour has come.","Rise, adventurer.","Fate has work for you.",
+  "The path is clear.","The hour has come.","Rise, adventurer.",
   "Your objectives await.","Onward.","Into the breach.","The saga continues.","Your move.",
   "Beast mode.","Main character energy.","We've got this.","Easy money.","No sweat.",
   "Big day.","Let's roll.","We ball.","You got this.","Looking productive today.",
@@ -546,6 +546,11 @@ function period(){
   if(h>=12&&h<18) return "afternoon";
   return "night";
 }
+/* The chosen greeting is stored, so retiring a line from the lists above wouldn't
+   otherwise take effect until the period rolled over — you'd delete one and still be
+   looking at it. Anything no longer on the lists gets re-picked on the next render. */
+const knownGreeting=t=>GREET_GENERAL.includes(t)||GREET_MORNING.includes(t)
+  ||GREET_NIGHT.includes(t)||Object.values(GREET_WX).some(l=>l.includes(t));
 function pickGreeting(){
   const wx=S.settings.weather?WX((S.sky||{}).code):null;
   const wxPool=GREET_WX[wx];
@@ -732,7 +737,9 @@ function render(){
   rd.classList.toggle("away",view!==0);
   if(tab==="today"&&view===0){
     const slot=dayKey()+":"+period();
-    if(S.greeting?.slot!==slot){ S.greeting={slot,text:pickGreeting()}; save(true); }
+    if(S.greeting?.slot!==slot||!knownGreeting(S.greeting.text)){
+      S.greeting={slot,text:pickGreeting()}; save(true);
+    }
     $("#screen").textContent = S.greeting.text;
   }else{
     $("#screen").textContent = tab==="ideas"?"Idea Drawer":tab==="today"?dayName(view):"Rhythm";
