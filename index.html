@@ -377,7 +377,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14j";
+const VERSION="2026.08.14k";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -514,7 +514,7 @@ const GREET_GENERAL=["Clock in.","Lock in.","Time to cook.","We have work to do.
   "Productivity.exe loading...","The list has opinions.","The chores have summoned you.",
   "Unfortunately, there is work to do.","Fine. I'll do it.","You made the list. Now face it.",
   "The audacity of these tasks.","Who put all these things here?",
-  "Future you is counting on you.","Past you left a mess.","The task monster hungers.",
+  "Future you is counting on you.","The task monster hungers.",
   "Another beautiful opportunity to be productive.","We can't keep ignoring these.",
   "Today we fight the list.","One thing at a time.","No rush. Just progress.",
   "Small steps count.","Nice and easy.","Let's take it one task at a time.",
@@ -1222,7 +1222,14 @@ const moonName=p=>["New moon","Waxing crescent","First quarter","Waxing gibbous"
 
 function phaseNow(){
   const sk=S.sky||{}, now=Date.now();
-  if(sk.sunrise&&sk.sunset){                       // real times when weather is on
+  /* sunrise/sunset are only good for the day they were fetched for. Weather refreshes
+     at most every 30 min and only while the app is open, so the last successful fetch
+     is often still yesterday's when the app is opened the next morning — comparing
+     "now" against a sunset that's already hours in the past reads as night no matter
+     the actual time. Fall through to the clock-based guess once the date has rolled
+     past what was fetched, same as if weather had never returned anything. */
+  const stale=sk.sunrise&&new Date(sk.sunrise).toDateString()!==new Date(now).toDateString();
+  if(sk.sunrise&&sk.sunset&&!stale){                // real times when weather is on and fresh
     const up=+new Date(sk.sunrise), dn=+new Date(sk.sunset), band=45*6e4;
     if(now<up-band||now>dn+band) return "night";
     if(now<up+band) return "dawn";

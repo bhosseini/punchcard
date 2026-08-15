@@ -29,6 +29,11 @@ const check = (name, cond, extra="") => {
 };
 
 setTimeout(() => {
+  // captured before anything below overrides window.phaseNow with a fixed stub for
+  // sky/greeting tests (and never restores it) — later checks that need the real
+  // clock/weather logic must call this, not window.phaseNow
+  const realPhaseNow = window.phaseNow;
+
   // ── 1. does it boot at all?
   check("boots with no runtime errors", errors.length === 0, errors.join(" | "));
   check("renders the seeded tasks", $$("#m-today .row").length === 3, $$("#m-today .row").length);
@@ -444,6 +449,32 @@ setTimeout(() => {
       ($("#s-version")||{}).textContent);
     check("follow-the-sun theme offered", /follow the sun/.test($("#sheetbody").textContent));
     click($("#scrim"));
+
+    // real bug: weather's last successful fetch is often still yesterday's when the
+    // app opens the next morning (it only refreshes every 30 min, and only while
+    // open). Comparing today against a sunset that's already hours in the past used
+    // to read as night no matter the actual time of day.
+    // Build local-time strings by hand (no toISOString — that's UTC and, once
+    // re-parsed as local by `new Date(str)`, silently shifts by the zone offset,
+    // which is exactly the kind of test bug that makes a check pass for the wrong
+    // reason). open-meteo's timezone=auto returns bare local time with no "Z"; match
+    // that.
+    {
+      const localISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-`
+        + `${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:`
+        + `${String(d.getMinutes()).padStart(2,"0")}`;
+      const now = new Date();
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      const yesterdaySunrise = new Date(y); yesterdaySunrise.setHours(6, 10, 0, 0);
+      const yesterdaySunset = new Date(y); yesterdaySunset.setHours(20, 5, 0, 0);
+      window.eval(`S.settings.weather = true; S.sky = {sunrise:${JSON.stringify(localISO(yesterdaySunrise))}, sunset:${JSON.stringify(localISO(yesterdaySunset))}};`);
+      const isActuallyDaytime = now.getHours() >= 8 && now.getHours() < 18;
+      const phase = realPhaseNow.call(window);
+      check("stale (yesterday's) sunrise/sunset doesn't force night at the real time",
+        isActuallyDaytime ? (phase === "day" || phase === "dawn" || phase === "dusk") : true,
+        `hour=${now.getHours()} phase=${phase}`);
+      window.eval("S.settings.weather = false; S.sky = null;");
+    }
     // no network calls should have been attempted with weather off
     check("no weather fetch while opted out", !window.__fetched, String(window.__fetched));
 
