@@ -71,17 +71,62 @@ h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;lette
 .striplab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;
   color:var(--ink-40);letter-spacing:.08em;margin-top:5px;}
 
-nav{display:flex;gap:6px;padding:0 22px 8px;flex:none;}
 /* these all set display, which beats the plain [hidden] attribute */
-nav[hidden],.strip[hidden],.striplab[hidden],#datelab[hidden],footer[hidden]{display:none;}
-nav button{flex:1;border:1px solid var(--rule);background:transparent;color:var(--ink-40);
-  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  padding:9px 0;border-radius:8px;cursor:pointer;transition:all .18s ease;min-width:0;}
-nav button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.strip[hidden],.striplab[hidden],#datelab[hidden],footer[hidden]{display:none;}
+
+/* the bottom tab bar — icons, not text pills. Always visible regardless of tab,
+   same as the pill row it replaced ("the tab row stays — it's how you leave" still
+   holds for the drawer). #calbtn lives here too rather than in #rail: it's one more
+   reason to keep the bar at four icons instead of three, and a jump-to-date picker
+   is just as useful from Rhythm or the drawer as it is from the card. */
+#tabbar{display:flex;flex:none;border-top:1px solid var(--rule);background:var(--card);
+  padding:2px 6px calc(4px + var(--sb));}
+#tabbar button{flex:1;display:flex;align-items:center;justify-content:center;
+  padding:11px 0;border:none;background:transparent;color:var(--ink-40);cursor:pointer;
+  border-radius:10px;transition:color .15s ease;}
+#tabbar button:active{background:var(--slot);}
+#tabbar svg{width:21px;height:21px;}
+#tabbar button[aria-selected="true"]{color:var(--violet);}
 
 main{flex:1;overflow-y:auto;padding:2px 22px 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 main::-webkit-scrollbar{display:none;}
 main[hidden]{display:none;}
+
+/* ── the Today/Rhythm slide deck ──────────────
+   #deck is the fixed window; #track is twice as wide and holds the two panes side by
+   side. Switching tab slides the track by one pane width, with a little overshoot so
+   the incoming tab "bumps" into place. The header (sky + strip) above and the tab bar
+   below never move — they're the anchors. */
+#deck{flex:1;min-height:0;overflow:hidden;position:relative;}
+#deck[hidden]{display:none;}
+#track{display:flex;width:200%;height:100%;
+  transition:transform .42s cubic-bezier(.22,1.12,.32,1);}
+#track.rhythm{transform:translateX(-50%);}
+.pane{width:50%;height:100%;display:flex;flex-direction:column;min-height:0;}
+.pane main{padding-top:0;}
+@media(prefers-reduced-motion:reduce){#track{transition:none;}}
+
+/* the jump-to-a-day calendar: a panel that grows from height 0, pushing the card up
+   instead of covering it with a dimmed sheet. Closed it has no height and no border,
+   so it leaves no trace above the tab bar. */
+#calpanel{flex:none;height:0;overflow:hidden;background:var(--card);
+  transition:height .4s cubic-bezier(.22,1.05,.3,1);}
+#calpanel.open{height:min(404px,52dvh);border-top:1px solid var(--rule);}
+#calpanel .calwrap{padding:12px 18px calc(12px + var(--sb));overflow-y:auto;max-height:100%;
+  scrollbar-width:none;}
+#calpanel .calwrap::-webkit-scrollbar{display:none;}
+
+/* When the calendar is open it needs to leave room for a few of the day's tasks above
+   it — otherwise the tall greeting + sky + strip eat the whole card and you just see
+   the header. So opening it collapses the card's chrome: the sky art, the punch strip,
+   the day rail and the composer all fold away, leaving the greeting, the visible tasks,
+   and the calendar. Everything comes back when it closes. */
+#app.calopen #sky,
+#app.calopen .strip,
+#app.calopen .striplab,
+#app.calopen #rail,
+#app.calopen #composer{display:none;}
+#app.calopen header{padding-bottom:10px;}
 .sect{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
   color:var(--ink-40);margin:18px 0 6px;display:flex;align-items:center;gap:8px;}
 .sect::after{content:"";flex:1;height:1px;background:var(--rule);}
@@ -183,8 +228,8 @@ main[hidden]{display:none;}
 .empty{text-align:center;padding:44px 20px;color:var(--ink-40);font-size:14px;line-height:1.7;}
 
 /* ── composer ───────────────────────────── */
-#rail{flex:none;display:flex;align-items:stretch;gap:7px;padding:7px 16px 8px;
-  border-top:1px solid var(--rule);background:var(--paper);}
+#rail{flex:none;display:flex;align-items:stretch;gap:7px;padding:8px 16px 9px;
+  border-bottom:1px solid var(--rule);background:var(--paper);}
 #rail[hidden]{display:none;}
 .railbtn{width:60px;border:1px solid var(--rule);background:transparent;color:var(--ink);
   border-radius:10px;display:grid;place-items:center;cursor:pointer;padding:0;min-height:46px;
@@ -236,7 +281,6 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
   bottom:max(0px,calc(50dvh - min(440px,47vh)));border-radius:20px;}
   .sheet.open{transform:translate(-50%,0);}}
 .sheet.open{transform:translateY(0);}
-.grab{width:36px;height:4px;border-radius:2px;background:var(--rule);margin:-6px auto 14px;}
 .sheet h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 14px;letter-spacing:-.02em;}
 .field{margin-bottom:14px;}
 .field label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
@@ -308,40 +352,40 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
     lost when you close it. Opening the file from Downloads is the usual cause — hosting
     it fixes this for good.</div>
 
-  <nav role="tablist">
-    <button role="tab" data-tab="today" aria-selected="true">today</button>
-    <button role="tab" data-tab="rhythm" aria-selected="false">rhythm</button>
-    <button role="tab" data-tab="ideas" aria-selected="false">drawer</button>
-  </nav>
-
-  <main id="m-today"></main>
-  <main id="m-rhythm" hidden></main>
-  <main id="m-ideas" hidden></main>
-
-  <div id="rail">
-    <button class="railbtn" id="prevday" aria-label="Previous day">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
-    <button class="railday" id="railday">Today</button>
-    <button class="railbtn" id="nextday" aria-label="Next day">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-    </button>
-    <button class="railbtn" id="calbtn" aria-label="Jump to a date">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-        stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>
-        <path d="M8 3v4"/><path d="M16 3v4"/></svg>
-    </button>
+  <!-- Today and Rhythm share the header/strip anchor above and the tab bar below; only
+       these two bodies slide horizontally between each other. The rail and the add-task
+       input live INSIDE the Today pane so they travel with it. The idea drawer is its
+       own separate space (below), not part of this slide. -->
+  <div id="deck">
+    <div id="track">
+      <section class="pane" id="p-today">
+        <div id="rail">
+          <button class="railbtn" id="prevday" aria-label="Previous day">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="railday" id="railday">Today</button>
+          <button class="railbtn" id="nextday" aria-label="Next day">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+        <main id="m-today"></main>
+        <footer id="composer">
+          <div class="compose">
+            <input id="new" placeholder="Add to the card…" autocomplete="off" enterkeyhint="done">
+            <button class="tog" id="dailytog" aria-pressed="false">daily</button>
+            <button class="plus" id="addbtn" aria-label="Add task">+</button>
+          </div>
+        </footer>
+      </section>
+      <section class="pane" id="p-rhythm">
+        <main id="m-rhythm"></main>
+      </section>
+    </div>
   </div>
 
-  <footer id="composer">
-    <div class="compose">
-      <input id="new" placeholder="Add to the card…" autocomplete="off" enterkeyhint="done">
-      <button class="tog" id="dailytog" aria-pressed="false">daily</button>
-      <button class="plus" id="addbtn" aria-label="Add task">+</button>
-    </div>
-  </footer>
+  <main id="m-ideas" hidden></main>
 
   <footer id="ideacomposer" hidden>
     <div class="compose">
@@ -349,10 +393,37 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
       <button class="plus" id="addideabtn" aria-label="Add idea">+</button>
     </div>
   </footer>
+
+  <!-- the calendar's jump-to-a-day panel: it grows in place and shoves the card up,
+       rather than dropping a dimmed sheet over everything -->
+  <div id="calpanel"></div>
+
+  <nav id="tabbar" role="tablist">
+    <button role="tab" data-tab="today" aria-selected="true" aria-label="Today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+        stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"/>
+        <path d="M8.5 12.5l2.3 2.3L16 10"/></svg>
+    </button>
+    <button role="tab" data-tab="rhythm" aria-selected="false" aria-label="Rhythm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+        stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11"/><path d="M12 20V4"/><path d="M20 20v-6"/></svg>
+    </button>
+    <button role="tab" data-tab="ideas" aria-selected="false" aria-label="Idea drawer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+        <rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/>
+        <circle cx="12" cy="7.5" r=".9" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="16.5" r=".9" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button id="calbtn" aria-label="Jump to a date">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+        stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>
+        <path d="M8 3v4"/><path d="M16 3v4"/></svg>
+    </button>
+  </nav>
 </div>
 
 <div id="scrim"></div>
-<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetbody"></div></div>
+<div class="sheet" id="sheet"><div id="sheetbody"></div></div>
 <div id="toast"><span id="toastmsg"></span><button id="toastact">Undo</button></div>
 
 <script>
@@ -387,7 +458,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.16b";
+const VERSION="2026.08.16e";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -739,27 +810,28 @@ function render(){
   $("#datelab").hidden = tab==="ideas";       // the drawer isn't tied to a day
   $("#ideacount").textContent = tab==="ideas"
     ? (S.ideas.length?S.ideas.length+" saved":"") : "";
-  $("#rail").hidden = tab!=="today";
   $("#prevday").disabled = view<=backLimit();
   $("#nextday").disabled = view>=MAX_AHEAD;
   const rd=$("#railday");
   rd.textContent = view===0?"Today":dayName(view)+" · back to today";
   rd.classList.toggle("away",view!==0);
-  if(tab==="today"&&view===0){
+  // Today (on the live day) and Rhythm both wear the rotating greeting — Rhythm is just
+  // today seen a different way, so it shouldn't get a flat "Rhythm" label of its own.
+  if((tab==="today"&&view===0)||tab==="rhythm"){
     const slot=dayKey()+":"+period();
     if(S.greeting?.slot!==slot||!knownGreeting(S.greeting.text)){
       S.greeting={slot,text:pickGreeting()}; save(true);
     }
     $("#screen").textContent = S.greeting.text;
   }else{
-    $("#screen").textContent = tab==="ideas"?"Idea Drawer":tab==="today"?dayName(view):"Rhythm";
+    $("#screen").textContent = tab==="ideas"?"Idea Drawer":dayName(view);
   }
   $("#warn").hidden = storageOK;
   paintSky();
-  $("#m-today").hidden = tab!=="today";
-  $("#m-rhythm").hidden = tab!=="rhythm";
+  $("#deck").hidden = tab==="ideas";            // deck holds Today + Rhythm; hidden only in the drawer
   $("#m-ideas").hidden = tab!=="ideas";
-  $("#composer").hidden = tab!=="today"||view<0;
+  $("#track").classList.toggle("rhythm", tab==="rhythm");   // slide between the two panes
+  $("#composer").hidden = tab==="today"&&view<0;   // rides in the Today pane; gone only on a past day
   $("#ideacomposer").hidden = tab!=="ideas";
   $("#new").placeholder = view>0?`Plan for ${dayName(view).toLowerCase()}…`:"Add to the card…";
 
@@ -1016,6 +1088,22 @@ function ideaSheet(idea){
   setTimeout(()=>{ if(isNew) $("#i-title").focus(); },60);
 }
 
+/* A fixed 6-row (42-cell) month grid, so switching between months never changes the
+   sheet's own height — a 4-week February and a 6-week August (first landing on a
+   Saturday) come out the same size instead of the sheet visibly growing and
+   shrinking as you browse. cellAttrs(dayNumber, dateObj) returns that day's
+   attributes; leading/trailing padding cells get none. */
+function monthGridCells(month,cellAttrs){
+  const first=new Date(month.getFullYear(),month.getMonth(),1);
+  const daysInMonth=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
+  let cells="";
+  ["s","m","t","w","t","f","s"].forEach(d=>cells+=`<div class="cdow">${d}</div>`);
+  for(let i=0;i<first.getDay();i++) cells+=`<div class="cday pad"></div>`;
+  for(let n=1;n<=daysInMonth;n++) cells+=`<div ${cellAttrs(n,new Date(month.getFullYear(),month.getMonth(),n,12))}>${n}</div>`;
+  for(let i=first.getDay()+daysInMonth;i<42;i++) cells+=`<div class="cday pad"></div>`;
+  return cells;
+}
+
 /* whether a day (by its offset from today) has anything on it — drives the dot in
    daySheet(). Three different places to look, since "today" lives on S.tasks, the
    future lives in S.plans, and the past is read from S.history. */
@@ -1031,69 +1119,71 @@ function dayHasContent(off,key){
    (as far as there's an actual history record). Reuses the exact same month-grid
    pattern and CSS as planSheet() rather than inventing a second calendar widget;
    the only real differences are the wider range and the "has stuff on it" dots,
-   which planSheet() doesn't need since its whole list already is "future days". */
+   which planSheet() doesn't need since its whole list already is "future days".
+   Browsing months is unrestricted — only individual days outside the reachable
+   range are disabled (.out) — so looking ahead or back doesn't hit a wall; only
+   picking a day you can't actually land on does. */
+/* Jump-to-a-day calendar. Not a dimmed overlay sheet — it lives in #calpanel, a strip
+   above the tab bar that grows from height 0 and shoves the card up to make room, then
+   collapses back to nothing. Same month grid as planSheet() (via monthGridCells), same
+   free browsing daySheet() had. */
 let dayCalMonth=null;
-function daySheet(){
-  dayCalMonth=dayCalMonth||new Date();
-  const first=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),1);
-  const days=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,0).getDate();
+const CAL_MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function renderCalPanel(){
   const todayMid=new Date(); todayMid.setHours(12,0,0,0);
   const offsetOf=d=>Math.round((d-todayMid)/864e5);
   const back=backLimit();
-  const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  let cells="";
-  ["s","m","t","w","t","f","s"].forEach(d=>cells+=`<div class="cdow">${d}</div>`);
-  for(let i=0;i<first.getDay();i++) cells+=`<div class="cday pad"></div>`;
-  for(let n=1;n<=days;n++){
-    const d=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),n,12);
+  const cells=monthGridCells(dayCalMonth,(n,d)=>{
     const off=offsetOf(d), key=keyAt(off), ok=off>=back&&off<=MAX_AHEAD;
     const busy=ok&&dayHasContent(off,key);
-    cells+=`<div class="cday${ok?"":" out"}${off===0?" today":""}${busy?" busy":""}"
-      data-off="${off}">${n}</div>`;
-  }
-  const firstAllowed=new Date(todayMid); firstAllowed.setDate(firstAllowed.getDate()+back);
-  const prevOk=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),0)>=firstAllowed;
-  const lastAllowed=new Date(todayMid); lastAllowed.setDate(lastAllowed.getDate()+MAX_AHEAD);
-  const nextOk=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,1)<=lastAllowed;
-  openSheet(`
-    <h2>Jump to a day</h2>
-    <div class="calhead">
-      <button class="calnav" id="d-prev" ${prevOk?"":"disabled"} aria-label="Previous month">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <b>${M[dayCalMonth.getMonth()]} ${dayCalMonth.getFullYear()}</b>
-      <button class="calnav" id="d-next" ${nextOk?"":"disabled"} aria-label="Next month">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-    </div>
-    <div class="calgrid">${cells}</div>
-    <p class="note" style="text-align:center">The dot means something's there — a plan, or a logged day.</p>`);
-  $("#d-prev").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()-1,1); daySheet(); };
-  $("#d-next").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,1); daySheet(); };
-  $$(".cday[data-off]").forEach(c=>{
+    return `class="cday${ok?"":" out"}${off===0?" today":""}${busy?" busy":""}" data-off="${off}"`;
+  });
+  $("#calpanel").innerHTML=`
+    <div class="calwrap">
+      <div class="calhead">
+        <button class="calnav" id="d-prev" aria-label="Previous month">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <b>${CAL_MONTHS[dayCalMonth.getMonth()]} ${dayCalMonth.getFullYear()}</b>
+        <button class="calnav" id="d-next" aria-label="Next month">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>
+      <div class="calgrid">${cells}</div>
+    </div>`;
+  $("#d-prev").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()-1,1); renderCalPanel(); };
+  $("#d-next").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,1); renderCalPanel(); };
+  $$("#calpanel .cday[data-off]").forEach(c=>{
     if(c.classList.contains("out")) return;
-    c.onclick=()=>{ view=parseInt(c.dataset.off); closeSheet(); render(); };
+    c.onclick=()=>{ view=parseInt(c.dataset.off); closeCalPanel(); selectTab("today"); };
   });
 }
+function openCalPanel(){
+  const p=$("#calpanel");
+  if(p.classList.contains("open")) return closeCalPanel();
+  dayCalMonth=new Date(); dayCalMonth.setDate(dayCalMonth.getDate()+view);
+  renderCalPanel();
+  void p.offsetHeight;            // flush the height:0 state so growing to .open actually transitions
+  p.classList.add("open");
+  $("#app").classList.add("calopen");   // fold the card's chrome away to make room for tasks + calendar
+  buzz(8);
+}
+function closeCalPanel(){ $("#calpanel").classList.remove("open"); $("#app").classList.remove("calopen"); }
 
 /* Month grid. Only today..MAX_AHEAD are selectable — the same window the day rail
-   allows, since a plan has to land on a day the card can actually reach. */
+   allows, since a plan has to land on a day the card can actually reach. Unlike
+   daySheet(), browsing itself stays bounded too: there's no reason to schedule
+   something into a month with nothing reachable in it. */
 let calMonth=null;
 function planSheet(idea){
   calMonth=calMonth||new Date();
-  const first=new Date(calMonth.getFullYear(),calMonth.getMonth(),1);
-  const days=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,0).getDate();
   const todayMid=new Date(); todayMid.setHours(12,0,0,0);
   const offsetOf=d=>Math.round((d-todayMid)/864e5);
   const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  let cells="";
-  ["s","m","t","w","t","f","s"].forEach(d=>cells+=`<div class="cdow">${d}</div>`);
-  for(let i=0;i<first.getDay();i++) cells+=`<div class="cday pad"></div>`;
-  for(let n=1;n<=days;n++){
-    const d=new Date(calMonth.getFullYear(),calMonth.getMonth(),n,12);
+  const cells=monthGridCells(calMonth,(n,d)=>{
     const off=offsetOf(d), ok=off>=0&&off<=MAX_AHEAD;
-    cells+=`<div class="cday${ok?"":" out"}${off===0?" today":""}" data-off="${off}">${n}</div>`;
-  }
+    return `class="cday${ok?"":" out"}${off===0?" today":""}" data-off="${off}"`;
+  });
   const prevOk=new Date(calMonth.getFullYear(),calMonth.getMonth(),0)>=todayMid
     || (calMonth.getMonth()===todayMid.getMonth()&&calMonth.getFullYear()===todayMid.getFullYear());
   const lastAllowed=new Date(todayMid); lastAllowed.setDate(lastAllowed.getDate()+MAX_AHEAD);
@@ -1861,18 +1951,19 @@ setInterval(()=>{ if(drag) return; paintSky(); applyTheme(); refreshWeather(); }
 $("#prevday").onclick=()=>goDay(-1);
 $("#nextday").onclick=()=>goDay(1);
 $("#railday").onclick=()=>{ if(view!==0) goDay(-view); };
-$("#calbtn").onclick=()=>{ dayCalMonth=new Date(); dayCalMonth.setDate(dayCalMonth.getDate()+view); daySheet(); };
+$("#calbtn").onclick=openCalPanel;
 document.addEventListener("keydown",e=>{
-  if(tab!=="today"||e.target.tagName==="INPUT"||$("#sheet").classList.contains("open")) return;
+  if(tab!=="today"||e.target.tagName==="INPUT"||$("#sheet").classList.contains("open")||$("#calpanel").classList.contains("open")) return;
   if(e.key==="ArrowLeft") goDay(-1);
   if(e.key==="ArrowRight") goDay(1);
 });
 function selectTab(name){
+  closeCalPanel();
   tab=name; if(tab!=="today") view=0;
-  $$("nav button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===name));
+  $$('#tabbar [role="tab"]').forEach(x=>x.setAttribute("aria-selected",x.dataset.tab===name));
   render();
 }
-$$("nav button").forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
+$$('#tabbar [role="tab"]').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));
 
 /* ── idea drawer wiring ───────────────────── */
 function goIdeas(){ buzz(8); selectTab("ideas"); }

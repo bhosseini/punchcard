@@ -76,12 +76,68 @@ The look is "manila time card": flat ink on paper stock. Specifics:
     days too). No timers, nothing to punch on a future day.
   - Past days are read-only, drawn from `S.history[dateKey]`.
   - `rollover()` runs at `settings.dayStart` (default 4am), not midnight.
-  - Reaching a specific day directly (not just one step at a time) is `daySheet()`, the
-    calendar icon in the rail. It's the *same* month-grid markup/CSS as `planSheet()`
-    (idea scheduling) — deliberately not a second calendar widget — just opened in both
-    directions (`backLimit()..MAX_AHEAD` instead of `0..MAX_AHEAD`) and with a dot on
-    days that actually have something (`dayHasContent()`, which checks `S.tasks`,
-    `S.plans`, or `S.history` depending on which side of today the day falls).
+  - Reaching a specific day directly (not just one step at a time) is the calendar icon
+    (`#calbtn`) in `#tabbar`, which opens `#calpanel` via `openCalPanel()`. It is **not** a
+    dimmed overlay sheet — the panel grows from height 0 *in place*, shoving the card up to
+    make room, then collapses back to nothing (closed it has no height and no border, so it
+    leaves no trace above the tab bar). Bobby wanted it to shove the card up, not cover it.
+    `renderCalPanel()` builds the *same* month grid as `planSheet()` (idea scheduling) —
+    deliberately not a second calendar widget — through the shared `monthGridCells()`
+    helper, which always pads to exactly 42 cells (6 rows) so switching from a 4-row month
+    to a 6-row one (e.g. August 2026, which opens on a Saturday) doesn't grow/shrink the
+    picker. It opens in both directions (`backLimit()..MAX_AHEAD` instead of
+    `0..MAX_AHEAD`, since jumping should reach the past too), marks days that actually have
+    something with a dot (`dayHasContent()` — checks `S.tasks`, `S.plans`, or `S.history`
+    depending on which side of today the day falls), and browses months freely (no
+    `prevOk`/`nextOk` cap, unlike `planSheet()` where scheduling into an unreachable month
+    would be pointless). Tapping a day jumps `view` there and closes the panel; re-tapping
+    `#calbtn` toggles it shut; switching tab closes it (`selectTab` calls `closeCalPanel()`).
+    The open forces a reflow (`void p.offsetHeight`) before adding `.open` so the
+    height:0 → height transition actually fires — an rAF would defer it past the test's
+    synchronous check. Opening it also adds `.calopen` to `#app`, which folds the card's
+    chrome away (`#app.calopen` hides the sky, strip/striplab, the rail and the composer)
+    so a few of the day's tasks stay visible *above* the calendar instead of the tall
+    greeting+sky+strip eating the whole card and leaving only the header. Everything
+    unfolds again on close.
+
+- **Today and Rhythm slide; the drawer doesn't.** `#deck` is a fixed window holding
+  `#track` (twice as wide, two `.pane`s side by side: `#p-today`, `#p-rhythm`). Switching
+  between Today and Rhythm toggles `#track.rhythm`, translating the track one pane width
+  with a slight overshoot (`cubic-bezier(.22,1.12,.32,1)`) so the incoming tab bumps into
+  place. The header (greeting + sky + strip) above and `#tabbar` below never move — they're
+  the anchors, deliberately, so the app feels like one surface with the body changing under
+  it. Rhythm wears the same rotating greeting as Today (not a flat "Rhythm" label) —
+  it's today seen a different way, so the header stays identical across the slide. The day
+  rail (`#rail`) and the add-task composer (`#composer`) live **inside** the
+  Today pane, so they ride along when it slides — and the rail moved *up* here from the old
+  bottom stack, reading as "< Today >" at the top of the card. Only Today↔Rhythm slide: the
+  idea drawer (`#m-ideas`) is its own separate space (bare — no sky/strip), reached by
+  hiding `#deck` and showing `#m-ideas`, not part of the track. `render()` no longer toggles
+  `.hidden` on `#m-today`/`#m-rhythm` (both panes are always present in the track); it sets
+  `#deck.hidden` for the drawer and `#track.rhythm` for the slide. Day-swipe (`goDay`) still
+  translates `#m-today` on its own, independent of the track — the two transforms don't
+  collide, because day-swipe is a small nudge within the pane and the track slide is a
+  full pane-width translate.
+
+- **Tab navigation lives in `#tabbar`, at the bottom, as icons — not a top row of text
+  pills.** It was a top `<nav role="tablist">` with three text buttons (today/rhythm/
+  drawer) until Bobby noticed it read as generic AI-app boilerplate once he'd seen the
+  same pattern elsewhere and couldn't unsee it. `#tabbar` is the last child of `#app`,
+  after `#ideacomposer`, and stays visible across every tab exactly like the old row did
+  (still true: "the tab row stays — it's how you leave" for the drawer). It holds four
+  icon buttons: today/rhythm/drawer as `role="tab"` with `data-tab`, plus `#calbtn` (the
+  `openCalPanel()` calendar jump) with no `data-tab` of its own — it isn't a tab, just parked
+  in the same row since a jump-to-date picker is exactly as useful from Rhythm or the
+  drawer as from the card, and four icons reads better than three plus an odd one out
+  elsewhere. `selectTab()` and its wiring are scoped to `#tabbar [role="tab"]`, not a
+  bare `nav button`, specifically so `#calbtn` doesn't get treated as a selectable tab.
+  This was *not* a listed signature element, so redesigning it doesn't cross the
+  "don't casually redesign signature elements" rule above — but change it deliberately,
+  not reflexively, same as anything else here.
+  - Sheets (`#sheet`) have no drag handle. There was a `.grab` bar at the top; it looked
+    like a resize/drag affordance but the sheet doesn't respond to dragging, so it was
+    just misleading and got removed. Don't add one back unless the sheet actually
+    becomes draggable.
 
 - **The idea drawer** (`tab==="ideas"`). A holding place for things worth doing that
   have no date yet — a museum, a date-night idea, a place to eat. Deliberately *not* a

@@ -333,9 +333,10 @@ setTimeout(() => {
 
     // ── 9c-4. the idea drawer
     click($$("nav button").find(b=>b.dataset.tab==="ideas"));
-    check("drawer opens", !$("#m-ideas").hidden && $("#m-today").hidden);
+    check("drawer opens", !$("#m-ideas").hidden && $("#deck").hidden);
     check("drawer heading", /Idea Drawer/.test($("#screen").textContent), $("#screen").textContent);
-    check("drawer hides the day rail", $("#rail").hidden);
+    // the rail lives inside the Today/Rhythm deck now, so the drawer hides it by hiding the deck
+    check("drawer hides the day rail", $("#deck").hidden && $("#deck").contains($("#rail")));
     check("drawer tab is selected", $$("nav button").find(b=>b.dataset.tab==="ideas").getAttribute("aria-selected")==="true");
     check("empty drawer says so", /drawer's empty/.test($("#m-ideas").textContent),
       $("#m-ideas").textContent.slice(0, 40));
@@ -402,7 +403,7 @@ setTimeout(() => {
       !Object.values(returned.plans).flat().some(t => t.fromIdea),
       `ideas=${returned.ideas.length} stillPlanned=${Object.values(returned.plans).flat().some(t=>t.fromIdea)}`);
     click($$("nav button").find(b=>b.dataset.tab==="today"));
-    check("today tab returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
+    check("today tab returns to the card", !$("#deck").hidden && $("#m-ideas").hidden);
 
     // ── 9c-5. jump to a date — reuses the exact same month-grid pattern as
     // scheduling an idea, but opens in both directions and marks days that have
@@ -414,8 +415,8 @@ setTimeout(() => {
       persist();
     `);
     click($("#calbtn"));
-    check("date picker opens", $("#sheet").classList.contains("open"));
-    const dayCells = $$(".cday[data-off]");
+    check("date picker opens", $("#calpanel").classList.contains("open"));
+    const dayCells = $$("#calpanel .cday[data-off]");
     const todayCell = dayCells.find(c => c.classList.contains("today"));
     const futureCell = dayCells.find(c => c.dataset.off === "3");
     const pastCell = dayCells.find(c => c.dataset.off === "-2");
@@ -428,16 +429,41 @@ setTimeout(() => {
       !outCell || !outCell.classList.contains("busy"));
 
     click(futureCell);
-    check("tapping a future day jumps the rail there without opening the composer",
-      $("#sheet").classList.contains("open") === false && $("#composer").hidden === false,
-      `sheetOpen=${$("#sheet").classList.contains("open")} composerHidden=${$("#composer").hidden}`);
+    check("tapping a future day jumps the rail there and closes the panel",
+      $("#calpanel").classList.contains("open") === false && $("#composer").hidden === false,
+      `panelOpen=${$("#calpanel").classList.contains("open")} composerHidden=${$("#composer").hidden}`);
     check("the planned task shows up on arrival", /Dentist/.test($("#m-today").textContent));
 
     click($("#calbtn"));
-    click($$(".cday[data-off]").find(c => c.dataset.off === "-2"));
+    click($$("#calpanel .cday[data-off]").find(c => c.dataset.off === "-2"));
     check("tapping a past day jumps there and it's read-only",
       /Old task/.test($("#m-today").textContent) && $("#composer").hidden,
       $("#m-today").textContent.slice(0, 40));
+
+    // ── 9c-6. free month browsing + a fixed panel height, regardless of how many
+    // rows a given month needs (a 4-week Feb vs. a 6-week Aug that starts on a
+    // Saturday used to make the picker visibly grow/shrink as you browsed)
+    click($("#calbtn"));
+    check("the calendar is a push panel, not a dimmed overlay sheet",
+      $("#calpanel").classList.contains("open") && !$("#sheet").classList.contains("open"));
+    check("no note text under the day picker", !$("#calpanel .note"));
+    const cellCount = () => $$("#calpanel .calgrid .cday").length;
+    check("month grid is always a fixed 42 cells", cellCount() === 42, cellCount());
+    check("prev/next month aren't disabled at a one-month boundary",
+      !$("#d-prev").disabled && !$("#d-next").disabled);
+    const startLabel = $("#calpanel .calhead b").textContent;
+    const monthNames = ["January","February","March","April","May","June","July",
+      "August","September","October","November","December"];
+    const back8 = new Date(); back8.setDate(1); back8.setMonth(back8.getMonth() - 8);
+    const expectLabel = `${monthNames[back8.getMonth()]} ${back8.getFullYear()}`;
+    for (let i = 0; i < 8; i++) click($("#d-prev"));   // well past the old one-month cap
+    check("month nav keeps working past where it used to be capped",
+      $("#calpanel .calhead b").textContent === expectLabel,
+      `${startLabel} -8mo -> ${$("#calpanel .calhead b").textContent}, expected ${expectLabel}`);
+    check("grid stays 42 cells on a month with fewer rows too", cellCount() === 42, cellCount());
+    for (let i = 0; i < 8; i++) click($("#d-next"));   // back to where we started
+    click($("#calbtn"));   // toggle the panel closed without picking a day
+    check("tapping the calendar button again closes the panel", !$("#calpanel").classList.contains("open"));
     click($("#railday"));   // back to today for the checks that follow
 
     // ── 9d. the sky
