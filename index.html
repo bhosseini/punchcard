@@ -160,13 +160,18 @@ main[hidden]{display:none;}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
 .cdow{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-40);text-align:center;padding-bottom:4px;}
-.cday{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;
-  font-family:var(--mono);font-size:12.5px;cursor:pointer;background:var(--slot);
+.cday{position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;font-family:var(--mono);font-size:12.5px;cursor:pointer;background:var(--slot);
   border:1px solid transparent;color:var(--ink);}
 .cday.pad{visibility:hidden;cursor:default;}
 .cday.out{opacity:.25;pointer-events:none;}
 .cday.today{border-color:var(--violet);color:var(--violet);}
 .cday.on{background:var(--violet);border-color:var(--violet);color:#fff;}
+/* a day with something on it, in the general jump-to-date picker (not the
+   idea-scheduling one — that one's whole list already is "days with a plan") */
+.cday.busy::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+  width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6;}
+.cday.on.busy::after{background:#fff;opacity:.9;}
 .play{width:36px;height:36px;border-radius:10px;border:1px solid var(--rule);background:var(--card);
   display:grid;place-items:center;cursor:pointer;transition:all .15s ease;padding:0;}
 .play.on{background:var(--orange);border-color:var(--orange);color:#fff;}
@@ -323,6 +328,11 @@ svg text{font-family:var(--mono);fill:var(--ink-40);}
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
     </button>
+    <button class="railbtn" id="calbtn" aria-label="Jump to a date">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>
+        <path d="M8 3v4"/><path d="M16 3v4"/></svg>
+    </button>
   </div>
 
   <footer id="composer">
@@ -377,7 +387,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.16a";
+const VERSION="2026.08.16b";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -1004,6 +1014,66 @@ function ideaSheet(idea){
     toast("Removed “"+idea.title+"”",()=>{ S.ideas.splice(i,0,idea); persist(); render(); });
   };
   setTimeout(()=>{ if(isNew) $("#i-title").focus(); },60);
+}
+
+/* whether a day (by its offset from today) has anything on it — drives the dot in
+   daySheet(). Three different places to look, since "today" lives on S.tasks, the
+   future lives in S.plans, and the past is read from S.history. */
+function dayHasContent(off,key){
+  if(off===0) return S.tasks.length>0;
+  if(off>0) return (S.plans[key]||[]).length>0;
+  const h=S.history[key];
+  return !!(h&&(Object.keys(h.per||{}).length||(h.completed||[]).length));
+}
+
+/* Jump to any date the rail can reach — same today..MAX_AHEAD ceiling as
+   planSheet()'s scheduling grid, but open on the back end too, down to backLimit()
+   (as far as there's an actual history record). Reuses the exact same month-grid
+   pattern and CSS as planSheet() rather than inventing a second calendar widget;
+   the only real differences are the wider range and the "has stuff on it" dots,
+   which planSheet() doesn't need since its whole list already is "future days". */
+let dayCalMonth=null;
+function daySheet(){
+  dayCalMonth=dayCalMonth||new Date();
+  const first=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),1);
+  const days=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,0).getDate();
+  const todayMid=new Date(); todayMid.setHours(12,0,0,0);
+  const offsetOf=d=>Math.round((d-todayMid)/864e5);
+  const back=backLimit();
+  const M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  let cells="";
+  ["s","m","t","w","t","f","s"].forEach(d=>cells+=`<div class="cdow">${d}</div>`);
+  for(let i=0;i<first.getDay();i++) cells+=`<div class="cday pad"></div>`;
+  for(let n=1;n<=days;n++){
+    const d=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),n,12);
+    const off=offsetOf(d), key=keyAt(off), ok=off>=back&&off<=MAX_AHEAD;
+    const busy=ok&&dayHasContent(off,key);
+    cells+=`<div class="cday${ok?"":" out"}${off===0?" today":""}${busy?" busy":""}"
+      data-off="${off}">${n}</div>`;
+  }
+  const firstAllowed=new Date(todayMid); firstAllowed.setDate(firstAllowed.getDate()+back);
+  const prevOk=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth(),0)>=firstAllowed;
+  const lastAllowed=new Date(todayMid); lastAllowed.setDate(lastAllowed.getDate()+MAX_AHEAD);
+  const nextOk=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,1)<=lastAllowed;
+  openSheet(`
+    <h2>Jump to a day</h2>
+    <div class="calhead">
+      <button class="calnav" id="d-prev" ${prevOk?"":"disabled"} aria-label="Previous month">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <b>${M[dayCalMonth.getMonth()]} ${dayCalMonth.getFullYear()}</b>
+      <button class="calnav" id="d-next" ${nextOk?"":"disabled"} aria-label="Next month">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <div class="calgrid">${cells}</div>
+    <p class="note" style="text-align:center">The dot means something's there — a plan, or a logged day.</p>`);
+  $("#d-prev").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()-1,1); daySheet(); };
+  $("#d-next").onclick=()=>{ dayCalMonth=new Date(dayCalMonth.getFullYear(),dayCalMonth.getMonth()+1,1); daySheet(); };
+  $$(".cday[data-off]").forEach(c=>{
+    if(c.classList.contains("out")) return;
+    c.onclick=()=>{ view=parseInt(c.dataset.off); closeSheet(); render(); };
+  });
 }
 
 /* Month grid. Only today..MAX_AHEAD are selectable — the same window the day rail
@@ -1791,6 +1861,7 @@ setInterval(()=>{ if(drag) return; paintSky(); applyTheme(); refreshWeather(); }
 $("#prevday").onclick=()=>goDay(-1);
 $("#nextday").onclick=()=>goDay(1);
 $("#railday").onclick=()=>{ if(view!==0) goDay(-view); };
+$("#calbtn").onclick=()=>{ dayCalMonth=new Date(); dayCalMonth.setDate(dayCalMonth.getDate()+view); daySheet(); };
 document.addEventListener("keydown",e=>{
   if(tab!=="today"||e.target.tagName==="INPUT"||$("#sheet").classList.contains("open")) return;
   if(e.key==="ArrowLeft") goDay(-1);

@@ -76,6 +76,12 @@ The look is "manila time card": flat ink on paper stock. Specifics:
     days too). No timers, nothing to punch on a future day.
   - Past days are read-only, drawn from `S.history[dateKey]`.
   - `rollover()` runs at `settings.dayStart` (default 4am), not midnight.
+  - Reaching a specific day directly (not just one step at a time) is `daySheet()`, the
+    calendar icon in the rail. It's the *same* month-grid markup/CSS as `planSheet()`
+    (idea scheduling) — deliberately not a second calendar widget — just opened in both
+    directions (`backLimit()..MAX_AHEAD` instead of `0..MAX_AHEAD`) and with a dot on
+    days that actually have something (`dayHasContent()`, which checks `S.tasks`,
+    `S.plans`, or `S.history` depending on which side of today the day falls).
 
 - **The idea drawer** (`tab==="ideas"`). A holding place for things worth doing that
   have no date yet — a museum, a date-night idea, a place to eat. Deliberately *not* a

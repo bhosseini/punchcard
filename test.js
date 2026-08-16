@@ -404,6 +404,42 @@ setTimeout(() => {
     click($$("nav button").find(b=>b.dataset.tab==="today"));
     check("today tab returns to the card", !$("#m-today").hidden && $("#m-ideas").hidden);
 
+    // ── 9c-5. jump to a date — reuses the exact same month-grid pattern as
+    // scheduling an idea, but opens in both directions and marks days that have
+    // something on them
+    window.eval(`
+      planFor(keyAt(3)).push(mk("Dentist", false));
+      const y = keyAt(-2);
+      S.history[y] = {total: 1800, per: {"Old task": 1800}, completed: ["Old task"]};
+      persist();
+    `);
+    click($("#calbtn"));
+    check("date picker opens", $("#sheet").classList.contains("open"));
+    const dayCells = $$(".cday[data-off]");
+    const todayCell = dayCells.find(c => c.classList.contains("today"));
+    const futureCell = dayCells.find(c => c.dataset.off === "3");
+    const pastCell = dayCells.find(c => c.dataset.off === "-2");
+    const outCell = dayCells.find(c => c.classList.contains("out"));
+    check("today, a planned day, and a logged day are all marked busy",
+      todayCell.classList.contains("busy") && futureCell.classList.contains("busy")
+        && pastCell.classList.contains("busy"),
+      `today=${todayCell.classList.contains("busy")} future=${futureCell.classList.contains("busy")} past=${pastCell.classList.contains("busy")}`);
+    check("days outside the reachable range are excluded from busy marking, not just dimmed",
+      !outCell || !outCell.classList.contains("busy"));
+
+    click(futureCell);
+    check("tapping a future day jumps the rail there without opening the composer",
+      $("#sheet").classList.contains("open") === false && $("#composer").hidden === false,
+      `sheetOpen=${$("#sheet").classList.contains("open")} composerHidden=${$("#composer").hidden}`);
+    check("the planned task shows up on arrival", /Dentist/.test($("#m-today").textContent));
+
+    click($("#calbtn"));
+    click($$(".cday[data-off]").find(c => c.dataset.off === "-2"));
+    check("tapping a past day jumps there and it's read-only",
+      /Old task/.test($("#m-today").textContent) && $("#composer").hidden,
+      $("#m-today").textContent.slice(0, 40));
+    click($("#railday"));   // back to today for the checks that follow
+
     // ── 9d. the sky
     check("sky art rendered", $("#sky").innerHTML.startsWith("<svg"),
           $("#sky").innerHTML.slice(0,20));
