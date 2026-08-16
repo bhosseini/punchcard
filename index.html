@@ -377,7 +377,7 @@ const KEY="punchcard.v1";
 /* Shown at the bottom of Settings. No build step here, so bump this by hand in the
    same commit as any change worth telling the phones apart by — it exists so you can
    confirm at a glance whether a device actually picked up the latest push. */
-const VERSION="2026.08.14k";
+const VERSION="2026.08.16a";
 let hueSeq=0;   // declared up here: load() assigns it before the format helpers run
 
 let mem=null;        // fallback if storage is blocked (e.g. sandboxed preview)
@@ -1645,9 +1645,17 @@ function taskSheet(t,planKey){
   openSheet(`
     <h2>Edit task</h2>
     <div class="field"><label>Name</label><input type="text" id="e-title" value="${esc(t.title)}"></div>
-    <div class="field"><label>Target time</label><div class="pillrow" id="e-target">
-      ${[0,15,30,45,60,90,120].map(v=>`<button class="pill${(t.target||0)===v?" on":""}" data-v="${v}">${v?v+"m":"none"}</button>`).join("")}
-    </div></div>
+    <div class="field"><label>Target time</label>
+      <div class="pillrow" id="e-target">
+        ${[5,10,15,20,30,45,60,90,120].map(v=>`<button class="pill${(t.target||0)===v?" on":""}" data-v="${v}">${v}m</button>`).join("")}
+        <button class="pill${t.target?"":" on"}" data-v="0">none</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input type="number" id="e-target-custom" min="0" step="1" inputmode="numeric"
+          placeholder="custom" value="${t.target||""}" style="width:88px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-40)">minutes — any number</span>
+      </div>
+    </div>
     ${planKey?"":`<div class="field"><label>Logged so far — ${clock(t.sec)}</label><div class="pillrow">
       ${[-15,-5,5,15].map(v=>`<button class="pill" data-adj="${v}">${v>0?"+":""}${v}m</button>`).join("")}
       <button class="pill" data-adj="reset">clear</button>
@@ -1665,8 +1673,18 @@ function taskSheet(t,planKey){
     <button class="sbtn" id="e-save">Save changes</button>
     <button class="sbtn danger" id="e-del" style="margin-top:8px">Remove from card</button>`);
 
-  $$("#e-target .pill").forEach(b=>b.onclick=()=>{ $$("#e-target .pill").forEach(x=>x.classList.remove("on"));
-    b.classList.add("on"); });
+  /* the custom field is the one source of truth for the target — pills are just quick
+     ways to fill it. Typing a value that happens to match a pill re-highlights it;
+     typing anything else (7, 22, 100…) just clears the highlight, no dead end. */
+  const syncTargetPills=()=>{
+    const v=parseInt($("#e-target-custom").value)||0;
+    $$("#e-target .pill").forEach(x=>x.classList.toggle("on",parseInt(x.dataset.v)===v));
+  };
+  $$("#e-target .pill").forEach(b=>b.onclick=()=>{
+    $("#e-target-custom").value=b.dataset.v==="0"?"":b.dataset.v;
+    syncTargetPills();
+  });
+  $("#e-target-custom").addEventListener("input",syncTargetPills);
   $$("[data-adj]").forEach(b=>b.onclick=()=>{
     const v=b.dataset.adj;
     t.sec = v==="reset"?0:Math.max(0,t.sec+parseInt(v)*60);
@@ -1680,7 +1698,7 @@ function taskSheet(t,planKey){
   $("#e-save").onclick=()=>{
     const nt=$("#e-title").value.trim(); if(nt) t.title=nt;
     t.daily=$("#e-daily").classList.contains("on");
-    const sel=$("#e-target .pill.on"); t.target=sel?(parseInt(sel.dataset.v)||null):null;
+    t.target=Math.max(0,parseInt($("#e-target-custom").value)||0)||null;
     persist(); render(); closeSheet();
   };
   if($("#e-bump")) $("#e-bump").onclick=()=>deferTask(t,"tomorrow");
@@ -1817,13 +1835,31 @@ setInterval(()=>{
   if(sec%20===0){ persist(true); if(sec%900===0) render(); }
 },1000);
 
-/* coming back from a locked screen or another app: nothing to reconcile,
-   the timestamp already knows. Just repaint (and honour the session cap). */
+/* coming back from a locked screen or another app: nothing to task-wise reconcile,
+   the timestamp already knows — render() alone repaints the sky/theme correctly since
+   phaseNow() is computed fresh every call. But render() never re-fetches weather, and
+   the periodic 5-minute refresh (below) is a plain setInterval, which Android is free
+   to throttle or freeze outright while the tab is backgrounded — so the sunrise/sunset
+   it's using can be hours stale right when you open the app. Force a real fetch here;
+   refreshWeather no-ops instantly if weather's off or already fresh.
+   Wired to three separate signals, not just one: standalone PWA launches on Android
+   are inconsistent about which lifecycle event they actually fire, so visibilitychange
+   alone has been seen to just not go off on some devices. Redundant, not wasteful —
+   render()/refreshWeather() are cheap and safe to call more than once. */
+let lastWake=0;
+function wake(){
+  S=load(); render();                 // cheap, fine to repeat if more than one signal fires
+  const now=Date.now();
+  if(now-lastWake<3000) return;       // visibilitychange/pageshow/focus often fire together
+  lastWake=now;
+  refreshWeather(true);
+}
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden) persist(true);          // passive: can't clobber a newer copy
-  else { S=load(); render(); }                // always re-read on return
+  else wake();
 });
-window.addEventListener("pageshow",()=>{ S=load(); render(); });
+window.addEventListener("pageshow",wake);
+window.addEventListener("focus",wake);
 window.addEventListener("pagehide",()=>persist(true));   // beforeunload is unreliable on Android
 
 /* another tab of the same app saved something newer */

@@ -59,6 +59,17 @@ The look is "manila time card": flat ink on paper stock. Specifics:
   opening the file from Downloads spawns multiple tabs; without it, a stale tab clobbers
   good data on close. Keep passive/active distinct when adding new writes.
 
+- **Waking up.** `wake()` runs on `visibilitychange`, `pageshow`, and `focus` — all
+  three, deliberately redundant, because standalone PWA launches on Android have been
+  seen to just not fire `visibilitychange` reliably. It re-reads storage, repaints
+  (cheap, safe to repeat if more than one signal fires for the same resume), and forces
+  a real weather fetch via `refreshWeather(true)` — `render()` alone recomputes
+  `phaseNow()` correctly, but never refetches, and the periodic 5-minute weather
+  refresh is a plain `setInterval` that Android is free to throttle or freeze while
+  backgrounded. Without the forced fetch, sunrise/sunset can be hours stale exactly
+  when you open the app. `lastWake` debounces the fetch (not the repaint) to one per
+  3s so three signals firing together don't triple-fetch.
+
 - **Day model.** `view` is an integer offset: 0 = today, +n ahead, -n behind.
   - Future days are a *planning* view: items live in `S.plans[dateKey]` and are delivered
     to the live card by `rollover()` when that day arrives (it catches up across missed

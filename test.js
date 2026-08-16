@@ -157,6 +157,32 @@ setTimeout(() => {
     click($("#e-save"));
     check("rename applied", /Renamed/.test($("#m-today").textContent));
 
+    // ── 7b. target time: fine presets down to 5m, plus any custom value
+    // note: an earlier task was punched, which keeps it first in S.tasks (done status
+    // doesn't reorder the array) while moving it out of the visible row order into
+    // "Punched out" — so look this task up by id, not by assuming tasks[0] is row[0]
+    const targetRow = $$("#m-today .row")[0];
+    const targetRowId = targetRow.dataset.id;
+    click(targetRow.querySelector(".mid"));
+    check("5 minute preset is offered", !!$('#e-target .pill[data-v="5"]'));
+    click($('#e-target .pill[data-v="5"]'));
+    check("picking a preset fills the custom field", $("#e-target-custom").value === "5",
+      $("#e-target-custom").value);
+    $("#e-target-custom").value = "7";
+    $("#e-target-custom").dispatchEvent(new window.Event("input", { bubbles: true }));
+    check("typing a non-preset value clears the pill highlight",
+      !$$("#e-target .pill").some(p => p.classList.contains("on")));
+    click($("#e-save"));
+    const findTarget = () => JSON.parse(window.localStorage.getItem("punchcard.v1"))
+      .tasks.find(t => t.id === targetRowId);
+    check("custom target time is saved", findTarget().target === 7, findTarget().target);
+
+    click($$("#m-today .row").find(r => r.dataset.id === targetRowId).querySelector(".mid"));
+    $("#e-target-custom").value = "-4";
+    $("#e-target-custom").dispatchEvent(new window.Event("input", { bubbles: true }));
+    click($("#e-save"));
+    check("a negative target can't be saved", (findTarget().target || 0) >= 0, findTarget().target);
+
     // ── 8. settings sheet
     click($("#gear"));
     check("settings sheet opens", /Auto-stop/.test($("#sheetbody").textContent));
@@ -477,6 +503,25 @@ setTimeout(() => {
     }
     // no network calls should have been attempted with weather off
     check("no weather fetch while opted out", !window.__fetched, String(window.__fetched));
+
+    // ── 9e. resuming the app — sky/theme repaint + a forced weather catch-up,
+    // wired to three separate lifecycle signals since standalone PWA launches on
+    // Android are inconsistent about which one actually fires
+    let resumeRefreshCalls = 0;
+    const origRefreshWeather = window.refreshWeather;
+    window.refreshWeather = (...a) => { resumeRefreshCalls++; return origRefreshWeather.apply(window, a); };
+    // earlier tests already dispatched visibilitychange for unrelated reconciliation
+    // checks, which primed the debounce; reset it so this test isn't at the mercy of
+    // exactly how much wall-clock time the suite has burned by this point
+    window.eval("lastWake = 0;");
+    window.dispatchEvent(new window.Event("focus"));
+    doc.dispatchEvent(new window.Event("visibilitychange"));
+    window.dispatchEvent(new window.Event("pageshow"));
+    check("resuming re-reads storage and repaints on each signal", errors.length === 0,
+      errors.join(" | "));
+    check("but three signals firing together only trigger one weather catch-up",
+      resumeRefreshCalls === 1, `refreshWeather called ${resumeRefreshCalls} times`);
+    window.refreshWeather = origRefreshWeather;
 
     // ── 10. reload from storage, as a cold start would
     const dom2 = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true,
